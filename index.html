@@ -1176,13 +1176,17 @@
       $("statProgress").textContent = `${state.completedWallets} / ${state.totalWallets}`;
       $("statSuccess").textContent = `${state.successWallets} / ${state.failedWallets}`;
 
-      const okRows = state.detailRows.filter(r => r.status === "ok");
-      const totalVolume = decimalSum(okRows.map(r => r.total_volume_usdt));
-      const totalCost = decimalSum(okRows.map(r => r.cost_usdt));
-      const totalTrades = decimalSum(okRows.map(r => r.trade_count));
-      const totalPoints = decimalSum(okRows.map(r => r.points));
-      const calculated = okRows.filter(r => r.calculated === "true").length;
-      const uncalculated = okRows.filter(r => r.calculated === "false").length;
+      let totalVolume = "0", totalCost = "0", totalTrades = "0", totalPoints = "0";
+      let calculated = 0, uncalculated = 0;
+      for (const r of state.detailRows) {
+        if (r.status !== "ok") continue;
+        totalVolume = decimalAdd(totalVolume, r.total_volume_usdt);
+        totalCost = decimalAdd(totalCost, r.cost_usdt);
+        totalTrades = decimalAdd(totalTrades, r.trade_count);
+        totalPoints = decimalAdd(totalPoints, r.points);
+        if (r.calculated === "true") calculated += 1;
+        else if (r.calculated === "false") uncalculated += 1;
+      }
 
       $("statVolume").textContent = shortDecimal(totalVolume, 4);
       $("statCost").textContent = shortDecimal(totalCost, 6) + " U";
@@ -1381,15 +1385,7 @@
         btn.className = "copyBtn";
         btn.type = "button";
         btn.textContent = "复制";
-        btn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          try {
-            await navigator.clipboard.writeText(value);
-            btn.textContent = "已复制";
-            setTimeout(() => { btn.textContent = "复制"; }, 1200);
-          } catch { btn.textContent = "失败"; }
-        });
+        btn.dataset.wallet = value;
         wrap.append(link, btn);
         td.appendChild(wrap);
         return;
@@ -1505,13 +1501,31 @@
       box.appendChild(table);
     }
 
+    let renderScheduled = false;
+    let summaryDirty = true;
+
+    function scheduleRender() {
+      if (renderScheduled) return;
+      renderScheduled = true;
+      requestAnimationFrame(() => {
+        renderScheduled = false;
+        renderAll();
+      });
+    }
+
     function renderAll() {
-      state.summaryRows = buildSummaryRows(state.detailRows);
+      if (summaryDirty) {
+        state.summaryRows = buildSummaryRows(state.detailRows);
+        summaryDirty = false;
+      }
       const best = findBestWallet(state.summaryRows);
       state.bestWallet = best ? best.wallet : null;
       updateFilterHint();
-      renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
-      renderTable("detailBox", state.detailRows, detailColumns, "detail");
+      if (state.activeTab === "summary") {
+        renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
+      } else {
+        renderTable("detailBox", state.detailRows, detailColumns, "detail");
+      }
       updateStats();
     }
 
@@ -1543,6 +1557,7 @@
       state.failedWallets = 0;
       state.detailRows = [];
       state.summaryRows = [];
+      summaryDirty = true;
       state.startedAt = Date.now();
 
       $("startBtn").disabled = true;
@@ -1572,7 +1587,8 @@
             log(`失败 ${idx + 1}/${wallets.length}: ${wallet} | ${message}`);
           } finally {
             state.completedWallets += 1;
-            renderAll();
+            summaryDirty = true;
+            scheduleRender();
           }
         }
       }
@@ -1598,6 +1614,7 @@
       state.failedWallets = 0;
       state.detailRows = [];
       state.summaryRows = [];
+      summaryDirty = true;
       $("progressBar").style.width = "0%";
       setLog("已清空结果。等待开始...");
       renderAll();
@@ -1713,6 +1730,24 @@
         setTimeout(() => { btn.textContent = old; }, 1200);
       } catch {}
     });
+
+    function setupWalletCopyDelegation(boxId) {
+      $(boxId).addEventListener("click", async (e) => {
+        const btn = e.target.closest(".copyBtn");
+        if (!btn) return;
+        const wallet = btn.dataset.wallet;
+        if (!wallet) return;
+        e.stopPropagation();
+        e.preventDefault();
+        try {
+          await navigator.clipboard.writeText(wallet);
+          btn.textContent = "已复制";
+          setTimeout(() => { btn.textContent = "复制"; }, 1200);
+        } catch { btn.textContent = "失败"; }
+      });
+    }
+    setupWalletCopyDelegation("summaryBox");
+    setupWalletCopyDelegation("detailBox");
 
     $("startBtn").addEventListener("click", runQuery);
     $("stopBtn").addEventListener("click", () => { state.abort = true; log("正在停止，已发出的请求会等待返回..."); });
