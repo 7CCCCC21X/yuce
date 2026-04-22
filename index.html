@@ -499,6 +499,73 @@
     tr.best-row { background: linear-gradient(90deg, rgba(20,122,61,.09), rgba(20,122,61,0) 65%); }
     tr.best-row:hover { background: linear-gradient(90deg, rgba(20,122,61,.14), rgba(20,122,61,0) 65%); }
 
+    tr.spacerRow td {
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+
+    .actionBtn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      padding: 1px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: inherit;
+    }
+
+    .actionBtn:hover { color: var(--accent); border-color: var(--accent); }
+    .actionBtn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .tagInput {
+      width: 110px;
+      padding: 2px 6px;
+      font-size: 12px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      background: transparent;
+      font-family: inherit;
+      color: var(--text);
+    }
+
+    .tagInput:hover { border-color: var(--line-strong); }
+    .tagInput:focus {
+      border-color: var(--accent);
+      background: var(--panel);
+      box-shadow: 0 0 0 2px rgba(29, 99, 237, .12);
+    }
+
+    .wallets-dropzone {
+      position: relative;
+    }
+    .wallets-dropzone.dragover textarea {
+      border-color: var(--accent);
+      background: rgba(29, 99, 237, .04);
+    }
+
+    .wallet-list-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    .wallet-list-bar select {
+      padding: 4px 8px;
+      font-size: 12px;
+      min-width: 160px;
+    }
+
+    .wallet-list-bar button {
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
     .filter-bar {
       display: flex;
       align-items: center;
@@ -562,7 +629,20 @@
     <h1>OPINX Predict 积分批量查询（含周明细与汇总统计）</h1>
     <div class="subtitle">将多个地址按行粘贴，每行一个地址</div>
 
-    <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址">0x6dcf1f5b09dfbe711fe7278c072eecac55a8e327</textarea>
+    <div id="walletsDrop" class="wallets-dropzone">
+      <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址。也可以把 .csv / .txt 文件拖到这里。">0x6dcf1f5b09dfbe711fe7278c072eecac55a8e327</textarea>
+    </div>
+
+    <div class="wallet-list-bar">
+      <label for="walletListSelect" class="filter-label" style="font-weight:700">钱包清单：</label>
+      <select id="walletListSelect">
+        <option value="">— 选择 —</option>
+      </select>
+      <button id="walletListLoadBtn" class="secondary" type="button" disabled>载入</button>
+      <button id="walletListSaveBtn" class="secondary" type="button">保存当前</button>
+      <button id="walletListDeleteBtn" class="bad" type="button" disabled>删除</button>
+      <span class="muted" id="walletListHint"></span>
+    </div>
 
     <div class="controls">
       <div class="control-group">
@@ -617,6 +697,11 @@
           <input id="retries" type="number" min="0" max="10" value="3" />
         </div>
         <div>
+          <label for="maxQps">每秒最多请求</label>
+          <input id="maxQps" type="number" min="0" step="0.5" value="0" placeholder="0=不限" />
+          <div class="help">0 表示不限流。</div>
+        </div>
+        <div>
           <label for="timeoutMs">超时毫秒</label>
           <input id="timeoutMs" type="number" min="3000" step="1000" value="20000" />
         </div>
@@ -669,6 +754,10 @@
       <button id="copySummaryBtn" class="secondary" disabled>复制汇总表</button>
       <button id="exportSummaryBtn" class="warn" disabled>导出汇总 CSV</button>
       <button id="exportDetailBtn" class="warn" disabled>导出明细 CSV</button>
+      <button id="saveSnapshotBtn" class="secondary" type="button" disabled>保存快照</button>
+      <select id="snapshotSelect" style="padding:6px 10px;font-size:13px;"><option value="">— 无对比 —</option></select>
+      <button id="exportDeltaBtn" class="warn" type="button" disabled>导出变化 CSV</button>
+      <button id="clearLocalBtn" class="bad" type="button" title="清空钱包清单、标签、快照">清除本地数据</button>
     </div>
 
     <div id="summaryBox" class="tableWrap"></div>
@@ -701,7 +790,33 @@
         detail: { key: "cost_per_point", dir: "asc" },
       },
       bestWallet: null,
+      walletTags: {},
+      walletLists: {},
+      snapshots: [],
+      activeSnapshotId: "",
     };
+
+    const STORAGE_KEYS = {
+      tags: "opinx:walletTags",
+      lists: "opinx:walletLists",
+      snapshots: "opinx:snapshots",
+    };
+    const MAX_SNAPSHOTS = 20;
+
+    function safeParse(json, fallback) {
+      if (!json) return fallback;
+      try { return JSON.parse(json); } catch { return fallback; }
+    }
+
+    function loadLocal(key, fallback) {
+      try { return safeParse(localStorage.getItem(key), fallback); }
+      catch { return fallback; }
+    }
+
+    function saveLocal(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); }
+      catch (err) { console.warn("localStorage 写入失败", err); }
+    }
 
     const numericKeys = new Set([
       "rank", "total_points", "allocation_round_points",
@@ -753,6 +868,8 @@
 
     const detailColumns = [
       ["wallet", "钱包"],
+      ["tag", "标签"],
+      ["actions", "操作"],
       ["status", "状态"],
       ["week", "周"],
       ["calculated", "已结算"],
@@ -775,6 +892,8 @@
 
     const summaryColumns = [
       ["wallet", "钱包"],
+      ["tag", "标签"],
+      ["actions", "操作"],
       ["status", "状态"],
       ["points", "统计周积分"],
       ["cost_usdt", "成本 U"],
@@ -918,6 +1037,16 @@
       return values.reduce((acc, v) => decimalAdd(acc, v), "0");
     }
 
+    function negateDecimal(v) {
+      const s = normalizeDecimal(v);
+      if (s === "0") return "0";
+      return s.startsWith("-") ? s.slice(1) : "-" + s;
+    }
+
+    function decimalSub(a, b) {
+      return decimalAdd(a, negateDecimal(b));
+    }
+
     function shortDecimal(value, maxDp = 6) {
       const s = normalizeDecimal(value);
       if (!s.includes(".")) return s;
@@ -971,6 +1100,26 @@
       }
     }
 
+    const rateLimiter = {
+      times: [],
+      async acquire() {
+        const qps = Number($("maxQps").value || 0);
+        if (!isFinite(qps) || qps <= 0) return;
+        const windowMs = 1000;
+        while (true) {
+          const now = performance.now();
+          this.times = this.times.filter(t => now - t < windowMs);
+          if (this.times.length < qps) {
+            this.times.push(now);
+            return;
+          }
+          const oldest = this.times[0];
+          const waitMs = Math.max(0, windowMs - (now - oldest) + 1);
+          await sleep(waitMs);
+        }
+      },
+    };
+
     async function fetchWallet(wallet) {
       const retries = Math.max(0, Number($("retries").value || 0));
       const timeoutMs = Math.max(3000, Number($("timeoutMs").value || 20000));
@@ -978,6 +1127,8 @@
 
       let lastError = "";
       for (let attempt = 0; attempt <= retries; attempt++) {
+        if (state.abort) throw new Error("已停止");
+        await rateLimiter.acquire();
         if (state.abort) throw new Error("已停止");
         try {
           return await fetchJsonWithTimeout(url, timeoutMs);
@@ -1176,13 +1327,17 @@
       $("statProgress").textContent = `${state.completedWallets} / ${state.totalWallets}`;
       $("statSuccess").textContent = `${state.successWallets} / ${state.failedWallets}`;
 
-      const okRows = state.detailRows.filter(r => r.status === "ok");
-      const totalVolume = decimalSum(okRows.map(r => r.total_volume_usdt));
-      const totalCost = decimalSum(okRows.map(r => r.cost_usdt));
-      const totalTrades = decimalSum(okRows.map(r => r.trade_count));
-      const totalPoints = decimalSum(okRows.map(r => r.points));
-      const calculated = okRows.filter(r => r.calculated === "true").length;
-      const uncalculated = okRows.filter(r => r.calculated === "false").length;
+      let totalVolume = "0", totalCost = "0", totalTrades = "0", totalPoints = "0";
+      let calculated = 0, uncalculated = 0;
+      for (const r of state.detailRows) {
+        if (r.status !== "ok") continue;
+        totalVolume = decimalAdd(totalVolume, r.total_volume_usdt);
+        totalCost = decimalAdd(totalCost, r.cost_usdt);
+        totalTrades = decimalAdd(totalTrades, r.trade_count);
+        totalPoints = decimalAdd(totalPoints, r.points);
+        if (r.calculated === "true") calculated += 1;
+        else if (r.calculated === "false") uncalculated += 1;
+      }
 
       $("statVolume").textContent = shortDecimal(totalVolume, 4);
       $("statCost").textContent = shortDecimal(totalCost, 6) + " U";
@@ -1213,6 +1368,10 @@
       $("exportSummaryBtn").disabled = !hasRows;
       $("exportDetailBtn").disabled = !hasRows;
       $("copySummaryBtn").disabled = !hasRows;
+      const saveSnapBtn = $("saveSnapshotBtn");
+      if (saveSnapBtn) saveSnapBtn.disabled = !state.summaryRows.length;
+      const expDeltaBtn = $("exportDeltaBtn");
+      if (expDeltaBtn) expDeltaBtn.disabled = !state.activeSnapshotId || !state.summaryRows.length;
     }
 
     function cellClass(key, value) {
@@ -1322,7 +1481,33 @@
       });
     }
 
-    function renderCellValue(td, key, value, ctx) {
+    function renderCellValue(td, key, value, ctx, row, tableKey) {
+      if (key === "tag") {
+        td.innerHTML = "";
+        const wallet = row && row.wallet ? row.wallet : "";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "tagInput";
+        input.placeholder = "—";
+        input.value = wallet ? (state.walletTags[wallet] || "") : "";
+        input.dataset.wallet = wallet;
+        input.maxLength = 40;
+        td.appendChild(input);
+        return;
+      }
+      if (key === "actions") {
+        td.innerHTML = "";
+        const wallet = row && row.wallet ? row.wallet : "";
+        const isError = row && row.status === "error";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "actionBtn";
+        btn.textContent = isError ? "重试" : "刷新";
+        btn.dataset.retryWallet = wallet;
+        if (!wallet) btn.disabled = true;
+        td.appendChild(btn);
+        return;
+      }
       if (key === "cost_per_point") {
         td.innerHTML = "";
         const wrap = document.createElement("span");
@@ -1381,15 +1566,7 @@
         btn.className = "copyBtn";
         btn.type = "button";
         btn.textContent = "复制";
-        btn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          try {
-            await navigator.clipboard.writeText(value);
-            btn.textContent = "已复制";
-            setTimeout(() => { btn.textContent = "复制"; }, 1200);
-          } catch { btn.textContent = "失败"; }
-        });
+        btn.dataset.wallet = value;
         wrap.append(link, btn);
         td.appendChild(wrap);
         return;
@@ -1415,23 +1592,73 @@
       return best && bestVal !== Number.POSITIVE_INFINITY ? best : null;
     }
 
-    function renderTable(containerId, rows, columns, tableKey) {
-      const box = $(containerId);
-      const filtered = filterRows(rows, tableKey);
-      const sorted = sortRows(filtered, state.sort[tableKey]);
+    const SORTABLE_COLUMN = (key) => key !== "tag" && key !== "actions";
 
-      if (state.activeTab === tableKey) {
-        $("rowCount").textContent = `${sorted.length} 行${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
+    function buildThead(columns, tableKey) {
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      const indexTh = document.createElement("th");
+      indexTh.textContent = "#";
+      trh.appendChild(indexTh);
+      for (const [key, label] of columns) {
+        const th = document.createElement("th");
+        th.dataset.key = key;
+        const labelSpan = document.createElement("span");
+        labelSpan.textContent = label;
+        th.appendChild(labelSpan);
+        if (SORTABLE_COLUMN(key)) {
+          th.className = "sortable";
+          const arrow = document.createElement("span");
+          arrow.className = "arrow";
+          th.appendChild(arrow);
+          th.addEventListener("click", () => {
+            const s = state.sort[tableKey];
+            if (s.key === key) {
+              s.dir = s.dir === "asc" ? "desc" : "asc";
+            } else {
+              s.key = key;
+              s.dir = numericKeys.has(key) ? "desc" : "asc";
+            }
+            renderAll();
+          });
+        }
+        trh.appendChild(th);
       }
+      thead.appendChild(trh);
+      updateTheadSort(thead, tableKey);
+      return thead;
+    }
 
-      if (!sorted.length) {
-        box.innerHTML = `<div style="padding:18px;color:var(--muted)">${rows.length ? "没有匹配的行" : "暂无数据"}</div>`;
-        return;
+    function updateTheadSort(thead, tableKey) {
+      const s = state.sort[tableKey];
+      thead.querySelectorAll("th.sortable").forEach(th => {
+        const key = th.dataset.key;
+        th.classList.toggle("activeSort", s.key === key);
+        const arrow = th.querySelector(".arrow");
+        if (arrow) arrow.textContent = s.key === key ? (s.dir === "desc" ? "▼" : "▲") : "↕";
+      });
+    }
+
+    function buildBodyRow(row, idx, columns, ctx, tableKey, bestWallet) {
+      const tr = document.createElement("tr");
+      if (tableKey === "summary" && bestWallet && row.wallet === bestWallet) {
+        tr.classList.add("best-row");
       }
+      const indexTd = document.createElement("td");
+      indexTd.textContent = String(idx + 1);
+      tr.appendChild(indexTd);
+      for (const [key] of columns) {
+        const td = document.createElement("td");
+        const value = row[key] ?? "";
+        renderCellValue(td, key, value, ctx, row, tableKey);
+        const cls = cellClass(key, value);
+        if (cls) td.className = td.className ? `${td.className} ${cls}` : cls;
+        tr.appendChild(td);
+      }
+      return tr;
+    }
 
-      // For the cost-per-point bar we want shorter cost = fuller bar.
-      // Find the minimum positive cost-per-point in the visible rows and
-      // scale every other value by (minPos / value).
+    function computeCppCtx(sorted) {
       let minPosCpp = Number.POSITIVE_INFINITY;
       let hasFree = false;
       for (const r of sorted) {
@@ -1443,75 +1670,206 @@
         if (n === 0) { hasFree = true; continue; }
         if (n < minPosCpp) minPosCpp = n;
       }
-      const ctx = { minPosCpp, hasFree };
-      const bestWallet = state.bestWallet;
+      return { minPosCpp, hasFree };
+    }
 
-      const table = document.createElement("table");
-      const thead = document.createElement("thead");
-      const trh = document.createElement("tr");
-      const sortState = state.sort[tableKey];
+    const virtualState = { detail: null };
+    const VIRTUAL_THRESHOLD = 120;
+    let virtualRowHeight = 41;
 
-      const indexTh = document.createElement("th");
-      indexTh.textContent = "#";
-      trh.appendChild(indexTh);
+    function renderTable(containerId, rows, columns, tableKey) {
+      const box = $(containerId);
+      const filtered = filterRows(rows, tableKey);
+      const sorted = sortRows(filtered, state.sort[tableKey]);
 
-      for (const [key, label] of columns) {
-        const th = document.createElement("th");
-        th.className = "sortable";
-        if (sortState.key === key) th.classList.add("activeSort");
-        const labelSpan = document.createElement("span");
-        labelSpan.textContent = label;
-        const arrow = document.createElement("span");
-        arrow.className = "arrow";
-        arrow.textContent = sortState.key === key ? (sortState.dir === "desc" ? "▼" : "▲") : "↕";
-        th.append(labelSpan, arrow);
-        th.addEventListener("click", () => {
-          const s = state.sort[tableKey];
-          if (s.key === key) {
-            s.dir = s.dir === "asc" ? "desc" : "asc";
-          } else {
-            s.key = key;
-            s.dir = numericKeys.has(key) ? "desc" : "asc";
-          }
-          renderAll();
-        });
-        trh.appendChild(th);
+      if (state.activeTab === tableKey) {
+        $("rowCount").textContent = `${sorted.length} 行${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
       }
-      thead.appendChild(trh);
-      table.appendChild(thead);
 
+      if (!sorted.length) {
+        if (tableKey === "detail" && virtualState.detail) {
+          teardownVirtualDetail();
+        }
+        box.innerHTML = `<div style="padding:18px;color:var(--muted)">${rows.length ? "没有匹配的行" : "暂无数据"}</div>`;
+        return;
+      }
+
+      const ctx = computeCppCtx(sorted);
+
+      if (tableKey === "detail" && sorted.length >= VIRTUAL_THRESHOLD) {
+        renderDetailVirtual(box, sorted, columns, ctx);
+      } else {
+        if (tableKey === "detail" && virtualState.detail) {
+          teardownVirtualDetail();
+        }
+        renderTableFull(box, sorted, columns, ctx, tableKey);
+      }
+    }
+
+    function renderTableFull(box, sorted, columns, ctx, tableKey) {
+      const bestWallet = state.bestWallet;
+      const table = document.createElement("table");
+      table.appendChild(buildThead(columns, tableKey));
       const tbody = document.createElement("tbody");
-      sorted.forEach((row, idx) => {
-        const tr = document.createElement("tr");
-        if (tableKey === "summary" && bestWallet && row.wallet === bestWallet) {
-          tr.classList.add("best-row");
-        }
-        const indexTd = document.createElement("td");
-        indexTd.textContent = String(idx + 1);
-        tr.appendChild(indexTd);
-        for (const [key] of columns) {
-          const td = document.createElement("td");
-          const value = row[key] ?? "";
-          renderCellValue(td, key, value, ctx);
-          const cls = cellClass(key, value);
-          if (cls) td.className = td.className ? `${td.className} ${cls}` : cls;
-          tr.appendChild(td);
-        }
-        tbody.appendChild(tr);
-      });
+      for (let i = 0; i < sorted.length; i++) {
+        tbody.appendChild(buildBodyRow(sorted[i], i, columns, ctx, tableKey, bestWallet));
+      }
       table.appendChild(tbody);
-
       box.innerHTML = "";
       box.appendChild(table);
     }
 
+    function teardownVirtualDetail() {
+      const vs = virtualState.detail;
+      if (!vs) return;
+      if (vs.scrollHandler) vs.box.removeEventListener("scroll", vs.scrollHandler);
+      virtualState.detail = null;
+    }
+
+    function renderDetailVirtual(box, sorted, columns, ctx) {
+      const OVERSCAN = 8;
+      let vs = virtualState.detail;
+
+      if (!vs || vs.box !== box || vs.columnsRef !== columns) {
+        if (vs && vs.scrollHandler) vs.box.removeEventListener("scroll", vs.scrollHandler);
+
+        const table = document.createElement("table");
+        const thead = buildThead(columns, "detail");
+        const tbody = document.createElement("tbody");
+        const colCount = columns.length + 1;
+
+        const topSpacer = document.createElement("tr");
+        topSpacer.className = "spacerRow";
+        const topSpacerTd = document.createElement("td");
+        topSpacerTd.colSpan = colCount;
+        topSpacer.appendChild(topSpacerTd);
+
+        const bottomSpacer = document.createElement("tr");
+        bottomSpacer.className = "spacerRow";
+        const bottomSpacerTd = document.createElement("td");
+        bottomSpacerTd.colSpan = colCount;
+        bottomSpacer.appendChild(bottomSpacerTd);
+
+        tbody.appendChild(topSpacer);
+        tbody.appendChild(bottomSpacer);
+        table.appendChild(thead);
+        table.appendChild(tbody);
+
+        box.innerHTML = "";
+        box.appendChild(table);
+
+        vs = {
+          box, table, thead, tbody,
+          topSpacer, topSpacerTd, bottomSpacer, bottomSpacerTd,
+          columnsRef: columns,
+          rows: [], ctx: null,
+          scrollHandler: null, scrollScheduled: false,
+          renderedStart: -1, renderedEnd: -1,
+          measured: false,
+        };
+
+        const handler = () => {
+          if (vs.scrollScheduled) return;
+          vs.scrollScheduled = true;
+          requestAnimationFrame(() => {
+            vs.scrollScheduled = false;
+            updateVirtualWindow(vs, OVERSCAN);
+          });
+        };
+        box.addEventListener("scroll", handler, { passive: true });
+        vs.scrollHandler = handler;
+
+        virtualState.detail = vs;
+      } else {
+        updateTheadSort(vs.thead, "detail");
+      }
+
+      vs.rows = sorted;
+      vs.ctx = ctx;
+      vs.renderedStart = -1;
+      vs.renderedEnd = -1;
+
+      const totalHeight = sorted.length * virtualRowHeight;
+      if (box.scrollTop > totalHeight) {
+        box.scrollTop = Math.max(0, totalHeight - box.clientHeight);
+      }
+
+      updateVirtualWindow(vs, OVERSCAN);
+
+      if (!vs.measured) {
+        requestAnimationFrame(() => {
+          const sample = vs.topSpacer.nextElementSibling;
+          if (sample && sample !== vs.bottomSpacer) {
+            const h = sample.getBoundingClientRect().height;
+            if (h > 10 && Math.abs(h - virtualRowHeight) > 1) {
+              virtualRowHeight = h;
+              vs.renderedStart = -1;
+              vs.renderedEnd = -1;
+              updateVirtualWindow(vs, OVERSCAN);
+            }
+          }
+          vs.measured = true;
+        });
+      }
+    }
+
+    function updateVirtualWindow(vs, overscan) {
+      const box = vs.box;
+      const total = vs.rows.length;
+      const rowH = virtualRowHeight;
+      const boxH = box.clientHeight || 680;
+      const scrollTop = box.scrollTop;
+
+      const start = Math.max(0, Math.floor(scrollTop / rowH) - overscan);
+      const end = Math.min(total, Math.ceil((scrollTop + boxH) / rowH) + overscan);
+
+      if (start === vs.renderedStart && end === vs.renderedEnd) return;
+
+      while (vs.topSpacer.nextSibling && vs.topSpacer.nextSibling !== vs.bottomSpacer) {
+        vs.tbody.removeChild(vs.topSpacer.nextSibling);
+      }
+
+      vs.topSpacerTd.style.height = (start * rowH) + "px";
+      vs.bottomSpacerTd.style.height = ((total - end) * rowH) + "px";
+
+      const frag = document.createDocumentFragment();
+      const columns = vs.columnsRef;
+      const ctx = vs.ctx;
+      const bestWallet = state.bestWallet;
+      for (let i = start; i < end; i++) {
+        frag.appendChild(buildBodyRow(vs.rows[i], i, columns, ctx, "detail", bestWallet));
+      }
+      vs.tbody.insertBefore(frag, vs.bottomSpacer);
+
+      vs.renderedStart = start;
+      vs.renderedEnd = end;
+    }
+
+    let renderScheduled = false;
+    let summaryDirty = true;
+
+    function scheduleRender() {
+      if (renderScheduled) return;
+      renderScheduled = true;
+      requestAnimationFrame(() => {
+        renderScheduled = false;
+        renderAll();
+      });
+    }
+
     function renderAll() {
-      state.summaryRows = buildSummaryRows(state.detailRows);
+      if (summaryDirty) {
+        state.summaryRows = buildSummaryRows(state.detailRows);
+        summaryDirty = false;
+      }
       const best = findBestWallet(state.summaryRows);
       state.bestWallet = best ? best.wallet : null;
       updateFilterHint();
-      renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
-      renderTable("detailBox", state.detailRows, detailColumns, "detail");
+      if (state.activeTab === "summary") {
+        renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
+      } else {
+        renderTable("detailBox", state.detailRows, detailColumns, "detail");
+      }
       updateStats();
     }
 
@@ -1543,6 +1901,7 @@
       state.failedWallets = 0;
       state.detailRows = [];
       state.summaryRows = [];
+      summaryDirty = true;
       state.startedAt = Date.now();
 
       $("startBtn").disabled = true;
@@ -1572,7 +1931,8 @@
             log(`失败 ${idx + 1}/${wallets.length}: ${wallet} | ${message}`);
           } finally {
             state.completedWallets += 1;
-            renderAll();
+            summaryDirty = true;
+            scheduleRender();
           }
         }
       }
@@ -1598,6 +1958,7 @@
       state.failedWallets = 0;
       state.detailRows = [];
       state.summaryRows = [];
+      summaryDirty = true;
       $("progressBar").style.width = "0%";
       setLog("已清空结果。等待开始...");
       renderAll();
@@ -1609,10 +1970,32 @@
       return s;
     }
 
+    function resolveExportValue(row, key) {
+      if (key === "actions") return "";
+      if (key === "tag") return state.walletTags[row.wallet] || "";
+      return row[key] ?? "";
+    }
+
+    function exportableColumns(columns) {
+      return columns.filter(([k]) => k !== "actions");
+    }
+
+    function triggerDownload(filename, blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
     function downloadCsv(filename, rows, columns) {
       if (!rows.length) return;
-      const header = columns.map(([, label]) => csvEscape(label)).join(",");
-      const lines = rows.map(row => columns.map(([key]) => csvEscape(row[key])).join(","));
+      const cols = exportableColumns(columns);
+      const header = cols.map(([, label]) => csvEscape(label)).join(",");
+      const lines = rows.map(row => cols.map(([key]) => csvEscape(resolveExportValue(row, key))).join(","));
       const csv = "\ufeff" + [header, ...lines].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -1627,8 +2010,9 @@
 
     async function copySummary() {
       if (!state.summaryRows.length) return;
-      const header = summaryColumns.map(([, label]) => label).join("\t");
-      const lines = state.summaryRows.map(row => summaryColumns.map(([key]) => row[key] ?? "").join("\t"));
+      const cols = exportableColumns(summaryColumns);
+      const header = cols.map(([, label]) => label).join("\t");
+      const lines = state.summaryRows.map(row => cols.map(([key]) => resolveExportValue(row, key)).join("\t"));
       const text = [header, ...lines].join("\n");
       try {
         await navigator.clipboard.writeText(text);
@@ -1713,6 +2097,321 @@
         setTimeout(() => { btn.textContent = old; }, 1200);
       } catch {}
     });
+
+    function setupWalletCopyDelegation(boxId) {
+      $(boxId).addEventListener("click", async (e) => {
+        const btn = e.target.closest(".copyBtn");
+        if (!btn) return;
+        const wallet = btn.dataset.wallet;
+        if (!wallet) return;
+        e.stopPropagation();
+        e.preventDefault();
+        try {
+          await navigator.clipboard.writeText(wallet);
+          btn.textContent = "已复制";
+          setTimeout(() => { btn.textContent = "复制"; }, 1200);
+        } catch { btn.textContent = "失败"; }
+      });
+    }
+    setupWalletCopyDelegation("summaryBox");
+    setupWalletCopyDelegation("detailBox");
+
+    // ---- 选项1 钱包清单保存/切换 ----
+    function rebuildWalletListSelect() {
+      const sel = $("walletListSelect");
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">— 选择 —</option>';
+      const names = Object.keys(state.walletLists).sort();
+      for (const name of names) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = `${name}（${extractWallets(state.walletLists[name]).length}）`;
+        sel.appendChild(opt);
+      }
+      if (prev && names.includes(prev)) sel.value = prev;
+      const has = !!sel.value && names.includes(sel.value);
+      $("walletListLoadBtn").disabled = !has;
+      $("walletListDeleteBtn").disabled = !has;
+      $("walletListHint").textContent = names.length ? "" : "还没有保存过清单。";
+    }
+
+    $("walletListSelect").addEventListener("change", () => {
+      const has = !!$("walletListSelect").value;
+      $("walletListLoadBtn").disabled = !has;
+      $("walletListDeleteBtn").disabled = !has;
+    });
+
+    $("walletListLoadBtn").addEventListener("click", () => {
+      const name = $("walletListSelect").value;
+      if (!name || state.walletLists[name] == null) return;
+      $("wallets").value = state.walletLists[name];
+      log(`已载入清单：${name}`);
+    });
+
+    $("walletListSaveBtn").addEventListener("click", () => {
+      const name = (prompt("清单名称：") || "").trim();
+      if (!name) return;
+      if (state.walletLists[name] != null && !confirm(`已存在"${name}"，覆盖？`)) return;
+      state.walletLists[name] = $("wallets").value;
+      saveLocal(STORAGE_KEYS.lists, state.walletLists);
+      rebuildWalletListSelect();
+      $("walletListSelect").value = name;
+      $("walletListSelect").dispatchEvent(new Event("change"));
+      log(`已保存清单：${name}`);
+    });
+
+    $("walletListDeleteBtn").addEventListener("click", () => {
+      const name = $("walletListSelect").value;
+      if (!name || state.walletLists[name] == null) return;
+      if (!confirm(`删除清单"${name}"？`)) return;
+      delete state.walletLists[name];
+      saveLocal(STORAGE_KEYS.lists, state.walletLists);
+      rebuildWalletListSelect();
+      $("walletListSelect").dispatchEvent(new Event("change"));
+    });
+
+    // ---- 选项2 CSV/TXT 拖拽导入 ----
+    (function setupDragDrop() {
+      const dz = $("walletsDrop");
+      const ta = $("wallets");
+      const prevent = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+      ["dragenter", "dragover"].forEach(e => dz.addEventListener(e, (ev) => {
+        prevent(ev);
+        dz.classList.add("dragover");
+      }));
+      ["dragleave", "drop"].forEach(e => dz.addEventListener(e, (ev) => {
+        prevent(ev);
+        dz.classList.remove("dragover");
+      }));
+      dz.addEventListener("drop", async (ev) => {
+        const files = ev.dataTransfer && ev.dataTransfer.files ? [...ev.dataTransfer.files] : [];
+        if (!files.length) return;
+        let combined = "";
+        for (const f of files) {
+          try {
+            const text = await f.text();
+            combined += "\n" + text;
+          } catch (err) {
+            log(`读取 ${f.name} 失败：${err.message || err}`);
+          }
+        }
+        const walletsFromFile = extractWallets(combined);
+        if (!walletsFromFile.length) { log("文件里没找到有效 0x 地址"); return; }
+        const existing = extractWallets(ta.value);
+        const union = [...new Set([...existing, ...walletsFromFile])];
+        ta.value = union.join("\n");
+        log(`从 ${files.length} 个文件提取 ${walletsFromFile.length} 个地址，合并后共 ${union.length} 个`);
+      });
+    })();
+
+    // ---- 选项3 按钱包标签（事件委托）----
+    function setupTagDelegation(boxId) {
+      const box = $(boxId);
+      box.addEventListener("change", (e) => {
+        const input = e.target;
+        if (!input.classList || !input.classList.contains("tagInput")) return;
+        const wallet = input.dataset.wallet;
+        if (!wallet) return;
+        const v = (input.value || "").trim();
+        if (v) state.walletTags[wallet] = v;
+        else delete state.walletTags[wallet];
+        saveLocal(STORAGE_KEYS.tags, state.walletTags);
+      });
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && e.target.classList && e.target.classList.contains("tagInput")) {
+          e.preventDefault();
+          e.target.blur();
+        }
+      });
+    }
+    setupTagDelegation("summaryBox");
+    setupTagDelegation("detailBox");
+
+    // ---- 选项4 失败行单独重试（事件委托）----
+    async function retryWallet(wallet) {
+      if (!wallet) return;
+      let weeks = null;
+      try { weeks = parseWeeks($("weeks").value); } catch { weeks = null; }
+      if (!state.running) state.abort = false;
+      state.detailRows = state.detailRows.filter(r => r.wallet !== wallet);
+      summaryDirty = true;
+      scheduleRender();
+      try {
+        log(`重试: ${wallet}`);
+        const data = await fetchWallet(wallet);
+        const rows = buildRows(wallet, data, weeks);
+        state.detailRows.push(...rows);
+        log(`重试完成: ${wallet}`);
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        state.detailRows.push(buildErrorDetailRow(wallet, message));
+        log(`重试失败: ${wallet} | ${message}`);
+      }
+      summaryDirty = true;
+      scheduleRender();
+    }
+
+    function setupRetryDelegation(boxId) {
+      $(boxId).addEventListener("click", (e) => {
+        const btn = e.target.closest(".actionBtn");
+        if (!btn) return;
+        const wallet = btn.dataset.retryWallet;
+        if (!wallet || btn.disabled) return;
+        e.preventDefault();
+        e.stopPropagation();
+        btn.disabled = true;
+        btn.textContent = "…";
+        retryWallet(wallet);
+      });
+    }
+    setupRetryDelegation("summaryBox");
+    setupRetryDelegation("detailBox");
+
+    // ---- 选项5 URL 参数持久化 ----
+    const URL_PARAMS = [
+      ["weeks", "w"],
+      ["concurrency", "c"],
+      ["retries", "r"],
+      ["timeoutMs", "t"],
+      ["pointsMultiplier", "pm"],
+      ["feeMultiplier", "fm"],
+      ["maxQps", "q"],
+      ["apiTemplate", "api"],
+      ["proxyPrefix", "px"],
+      ["minPoints", "mp"],
+      ["minVolume", "mv"],
+    ];
+
+    function loadUrlParams() {
+      try {
+        const url = new URL(location.href);
+        for (const [id, key] of URL_PARAMS) {
+          const v = url.searchParams.get(key);
+          const el = $(id);
+          if (v !== null && el) el.value = v;
+        }
+        state.minPoints = readMinInput($("minPoints"));
+        state.minVolume = readMinInput($("minVolume"));
+      } catch {}
+    }
+
+    let urlSyncTimer = 0;
+    function syncUrlParams() {
+      clearTimeout(urlSyncTimer);
+      urlSyncTimer = setTimeout(() => {
+        try {
+          const url = new URL(location.href);
+          for (const [id, key] of URL_PARAMS) {
+            const el = $(id);
+            if (!el) continue;
+            const v = (el.value || "").trim();
+            if (v) url.searchParams.set(key, v);
+            else url.searchParams.delete(key);
+          }
+          history.replaceState(null, "", url);
+        } catch {}
+      }, 300);
+    }
+
+    for (const [id] of URL_PARAMS) {
+      const el = $(id);
+      if (el) el.addEventListener("input", syncUrlParams);
+    }
+
+    // ---- 选项6 历史快照对比 ----
+    function rebuildSnapshotSelect() {
+      const sel = $("snapshotSelect");
+      const current = state.activeSnapshotId;
+      sel.innerHTML = '<option value="">— 无对比 —</option>';
+      for (const s of state.snapshots) {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.label}（${s.rows.length}）`;
+        sel.appendChild(opt);
+      }
+      if (current && state.snapshots.some(s => s.id === current)) {
+        sel.value = current;
+      } else {
+        state.activeSnapshotId = "";
+        sel.value = "";
+      }
+      $("exportDeltaBtn").disabled = !state.activeSnapshotId || !state.summaryRows.length;
+    }
+
+    $("saveSnapshotBtn").addEventListener("click", () => {
+      if (!state.summaryRows.length) return;
+      const ts = Date.now();
+      const snap = {
+        id: `s${ts}`,
+        ts,
+        label: new Date(ts).toLocaleString(),
+        rows: state.summaryRows.map(r => ({
+          wallet: r.wallet,
+          points: r.points || "0",
+          cost_usdt: r.cost_usdt || "0",
+          total_volume_usdt: r.total_volume_usdt || "0",
+          trade_count: r.trade_count || "0",
+        })),
+      };
+      state.snapshots = [snap, ...state.snapshots].slice(0, MAX_SNAPSHOTS);
+      saveLocal(STORAGE_KEYS.snapshots, state.snapshots);
+      rebuildSnapshotSelect();
+      log(`已保存快照：${snap.label}（${snap.rows.length} 个钱包）`);
+    });
+
+    $("snapshotSelect").addEventListener("change", (e) => {
+      state.activeSnapshotId = e.target.value || "";
+      $("exportDeltaBtn").disabled = !state.activeSnapshotId || !state.summaryRows.length;
+    });
+
+    $("exportDeltaBtn").addEventListener("click", () => {
+      const snap = state.snapshots.find(s => s.id === state.activeSnapshotId);
+      if (!snap) return;
+      const baseMap = new Map(snap.rows.map(r => [r.wallet, r]));
+      const header = ["钱包","标签","当前积分","对比积分","Δ积分","当前成本","对比成本","Δ成本","当前总交易量","对比总交易量","Δ交易量","当前交易次数","对比交易次数","Δ次数"];
+      const lines = [header.map(csvEscape).join(",")];
+      for (const r of state.summaryRows) {
+        const base = baseMap.get(r.wallet) || {};
+        const cells = [
+          r.wallet,
+          state.walletTags[r.wallet] || "",
+          r.points || "0", base.points || "0", decimalSub(r.points || "0", base.points || "0"),
+          r.cost_usdt || "0", base.cost_usdt || "0", decimalSub(r.cost_usdt || "0", base.cost_usdt || "0"),
+          r.total_volume_usdt || "0", base.total_volume_usdt || "0", decimalSub(r.total_volume_usdt || "0", base.total_volume_usdt || "0"),
+          r.trade_count || "0", base.trade_count || "0", decimalSub(r.trade_count || "0", base.trade_count || "0"),
+        ];
+        lines.push(cells.map(csvEscape).join(","));
+      }
+      const csv = "﻿" + lines.join("\n");
+      triggerDownload(`opinx_delta_${snap.id}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      log(`已导出变化对比：基准 ${snap.label}`);
+    });
+
+    // ---- 清除本地数据 ----
+    $("clearLocalBtn").addEventListener("click", () => {
+      if (!confirm("清除本地的钱包清单、标签、快照？此操作不可撤销。")) return;
+      state.walletTags = {};
+      state.walletLists = {};
+      state.snapshots = [];
+      state.activeSnapshotId = "";
+      try {
+        localStorage.removeItem(STORAGE_KEYS.tags);
+        localStorage.removeItem(STORAGE_KEYS.lists);
+        localStorage.removeItem(STORAGE_KEYS.snapshots);
+      } catch {}
+      rebuildWalletListSelect();
+      rebuildSnapshotSelect();
+      scheduleRender();
+      log("已清除本地数据。");
+    });
+
+    // ---- 初始化 ----
+    state.walletTags = loadLocal(STORAGE_KEYS.tags, {}) || {};
+    state.walletLists = loadLocal(STORAGE_KEYS.lists, {}) || {};
+    state.snapshots = loadLocal(STORAGE_KEYS.snapshots, []) || [];
+    loadUrlParams();
+    rebuildWalletListSelect();
+    rebuildSnapshotSelect();
 
     $("startBtn").addEventListener("click", runQuery);
     $("stopBtn").addEventListener("click", () => { state.abort = true; log("正在停止，已发出的请求会等待返回..."); });
