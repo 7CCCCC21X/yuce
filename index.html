@@ -1,0 +1,1728 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OPINX Predict 积分批量查询（含周明细与汇总统计）</title>
+  <style>
+    :root {
+      --bg: #f5f4ef;
+      --panel: #ffffff;
+      --text: #1f2330;
+      --muted: #6a7282;
+      --line: #e3e1d9;
+      --line-strong: #cfccc2;
+      --accent: #1d63ed;
+      --accent-hover: #174fc2;
+      --ok: #147a3d;
+      --warn: #8a6200;
+      --bad: #b8342a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 22px 26px 40px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+
+    label {
+      display: inline-block;
+      margin: 0 6px 0 0;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    textarea, input[type="text"], input[type="number"], input[type="search"], select {
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      padding: 6px 9px;
+      outline: none;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    textarea:focus, input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(29, 99, 237, .12);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .field-block { margin-top: 10px; }
+    .field-block input[type="text"] { width: 100%; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 14px 0 10px;
+    }
+
+    .control-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-group input[type="number"],
+    .control-group input[type="text"] {
+      width: 72px;
+    }
+
+    .control-group input.wide { width: 150px; }
+
+    .help {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    button {
+      border: 1px solid var(--accent);
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 6px 16px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 600;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+    button.secondary {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--line-strong);
+    }
+
+    button.secondary:hover {
+      background: #efede6;
+      border-color: var(--line-strong);
+    }
+
+    button.warn {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--line-strong);
+    }
+
+    button.warn:hover { background: #efede6; }
+
+    button.bad {
+      background: var(--panel);
+      color: var(--bad);
+      border: 1px solid var(--line-strong);
+    }
+
+    button.bad:hover { background: #f8ecea; border-color: var(--bad); }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .checkbox input { accent-color: var(--accent); }
+
+    .progress-line {
+      margin: 10px 0;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.9;
+    }
+
+    .progress-line .label {
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    .progress-line .sep {
+      color: var(--line-strong);
+      margin: 0 10px;
+    }
+
+    .progress-line .num-list {
+      color: var(--text);
+    }
+
+    .progressOuter {
+      height: 4px;
+      overflow: hidden;
+      background: var(--line);
+      margin: 6px 0 10px;
+      border-radius: 2px;
+    }
+
+    .progressInner {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width .2s ease;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin: 14px 0 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: -1px;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tools {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+
+    .tableWrap {
+      max-height: 680px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1180px;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #fafaf7;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    td:first-child, th:first-child {
+      color: var(--muted);
+      font-weight: 600;
+      width: 44px;
+      padding-right: 6px;
+    }
+
+    td.wallet {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    td.wallet .walletInner {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    td.wallet a.walletLink {
+      color: var(--accent);
+      text-decoration: underline;
+      font-size: 13px;
+    }
+
+    td.wallet a.walletLink:hover { color: var(--accent-hover); }
+
+    td.wallet .copyBtn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    td.wallet .copyBtn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th.sortable:hover { color: var(--accent); }
+
+    th.sortable .arrow {
+      display: inline-block;
+      margin-left: 4px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    th.sortable.activeSort .arrow { color: var(--accent); }
+
+    tbody tr:hover { background: #fafaf5; }
+
+    .tableBar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0 8px;
+      flex-wrap: wrap;
+    }
+
+    .tableBar input[type="search"] {
+      flex: 1;
+      min-width: 220px;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+
+    .tableBar .rowCount {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .ok { color: var(--ok); font-weight: 600; }
+    .badText { color: var(--bad); font-weight: 600; }
+    .warnText { color: var(--warn); font-weight: 600; }
+    .muted { color: var(--muted); }
+
+    .log {
+      margin-top: 10px;
+      max-height: 120px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 8px 10px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      border-radius: 3px;
+    }
+
+    .note {
+      margin: 10px 0;
+      padding: 10px 12px;
+      border-left: 3px solid var(--warn);
+      background: #fdf6e3;
+      color: #5c4600;
+      font-size: 12px;
+    }
+
+    details.advanced {
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+    }
+
+    details.advanced > summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text);
+      user-select: none;
+    }
+
+    details.advanced[open] > summary { margin-bottom: 10px; }
+
+    details.advanced .row-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    details.advanced .row-grid input { width: 100%; }
+
+    .hot {
+      color: var(--ok);
+      font-weight: 700;
+    }
+
+    .muted-suffix {
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: 2px;
+    }
+
+    .best-panel {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 10px 0 4px;
+      padding: 10px 14px;
+      background: linear-gradient(90deg, rgba(20,122,61,.10), rgba(20,122,61,0));
+      border: 1px solid rgba(20,122,61,.28);
+      border-left: 3px solid var(--ok);
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .best-panel .best-tag {
+      background: var(--ok);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .best-panel .best-addr {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      background: rgba(255,255,255,.6);
+      padding: 2px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .best-panel .best-stat { color: var(--text); }
+    .best-panel .best-stat b { font-variant-numeric: tabular-nums; }
+
+    td.cpp {
+      font-variant-numeric: tabular-nums;
+      min-width: 170px;
+    }
+
+    td.cpp .cppInner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    td.cpp .cppVal {
+      min-width: 76px;
+      text-align: right;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+
+    td.cpp .cppBar {
+      flex: 1;
+      height: 6px;
+      background: var(--line);
+      border-radius: 3px;
+      overflow: hidden;
+      max-width: 80px;
+    }
+
+    td.cpp .cppFill {
+      height: 100%;
+      background: linear-gradient(90deg, #4ca96b, #147a3d);
+      border-radius: 3px;
+      transition: width .25s ease;
+    }
+
+    td.cpp.free .cppVal { color: #1d63ed; }
+    td.cpp.free .cppFill { background: linear-gradient(90deg, #4d8cff, #1d63ed); }
+
+    td.cpp.inf .cppVal { color: var(--bad); font-weight: 700; }
+    td.cpp.inf .cppFill { background: var(--bad); }
+
+    td.cpp.none .cppVal { color: var(--muted); font-weight: 500; }
+    td.cpp.none .cppBar { visibility: hidden; }
+
+    tr.best-row { background: linear-gradient(90deg, rgba(20,122,61,.09), rgba(20,122,61,0) 65%); }
+    tr.best-row:hover { background: linear-gradient(90deg, rgba(20,122,61,.14), rgba(20,122,61,0) 65%); }
+
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 10px 0 8px;
+      padding: 8px 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    .filter-bar .filter-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .filter-bar input[type="number"] {
+      width: 110px;
+      padding: 5px 8px;
+    }
+
+    .filter-bar label { font-size: 13px; }
+
+    .filter-bar button {
+      padding: 5px 12px;
+      font-size: 12px;
+    }
+
+    .filter-bar .filter-hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: auto;
+    }
+
+    .filter-bar .filter-hint.active {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    tr.best-row td.wallet a.walletLink::after {
+      content: "最佳";
+      display: inline-block;
+      background: var(--ok);
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 8px;
+      vertical-align: middle;
+      text-decoration: none;
+      letter-spacing: .3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>OPINX Predict 积分批量查询（含周明细与汇总统计）</h1>
+    <div class="subtitle">将多个地址按行粘贴，每行一个地址</div>
+
+    <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址">0x6dcf1f5b09dfbe711fe7278c072eecac55a8e327</textarea>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="weeks">周数</label>
+        <input id="weeks" type="text" value="18" placeholder="18 / 17,18 / 1-18" />
+      </div>
+      <button id="startBtn">开始查询</button>
+      <button id="clearBtn" class="secondary">清空结果</button>
+      <button id="stopBtn" class="bad" disabled>停止</button>
+      <label class="checkbox"><input id="onlyCalculated" type="checkbox" />只显示已结算的周</label>
+    </div>
+
+    <div class="progress-line">
+      <span class="label">进度：</span><span id="statProgress">0 / 0</span>
+      <span class="sep">|</span>
+      <span class="label">成功</span><span id="statSuccess">0</span>
+      <span class="sep">|</span>
+      <span class="label">汇总积分 Σ:</span><span id="statPoints">0</span>
+      <span class="sep">|</span>
+      <span class="label">汇总成本</span><span id="statCost">0 U</span>
+      <span class="sep">|</span>
+      <span class="label">整体积分成本</span><span id="statOverallCpp" class="hot">—</span><span class="muted-suffix"> /积分</span>
+      <span class="sep">|</span>
+      <span class="label">汇总交易量</span><span id="statVolume">0</span>
+      <span class="sep">|</span>
+      <span class="label">交易次数</span><span id="statTrades">0</span>
+      <span class="sep">|</span>
+      <span class="label">已结算 / 未结算</span><span id="statCalcSplit">0 / 0</span>
+    </div>
+
+    <div id="bestPanel" class="best-panel" hidden>
+      <span class="best-tag">积分成本最低</span>
+      <code id="bestAddr" class="best-addr">-</code>
+      <button id="bestCopyBtn" class="copyBtn" type="button">复制</button>
+      <span class="best-stat"><span class="muted">积分</span> <b id="bestPoints">0</b></span>
+      <span class="best-stat"><span class="muted">成本</span> <b id="bestCost">0</b> U</span>
+      <span class="best-stat"><span class="muted">积分成本</span> <b id="bestCpp" class="hot">—</b> <span class="muted">/积分</span></span>
+    </div>
+
+    <div class="progressOuter"><div id="progressBar" class="progressInner"></div></div>
+
+    <details class="advanced">
+      <summary>高级配置（API、代理、并发、倍率）</summary>
+      <div class="row-grid">
+        <div>
+          <label for="concurrency">并发数量</label>
+          <input id="concurrency" type="number" min="1" max="50" value="5" />
+          <div class="help">建议 3-10。</div>
+        </div>
+        <div>
+          <label for="retries">失败重试</label>
+          <input id="retries" type="number" min="0" max="10" value="3" />
+        </div>
+        <div>
+          <label for="timeoutMs">超时毫秒</label>
+          <input id="timeoutMs" type="number" min="3000" step="1000" value="20000" />
+        </div>
+        <div>
+          <label for="pointsMultiplier">积分倍率</label>
+          <input id="pointsMultiplier" type="number" min="0" step="0.01" value="1.1" />
+        </div>
+        <div>
+          <label for="feeMultiplier">手续费折扣</label>
+          <input id="feeMultiplier" type="number" min="0" step="0.01" value="0.9" />
+        </div>
+        <div>
+          <label for="apiTemplate">API 模板</label>
+          <input id="apiTemplate" type="text" value="https://tool.opinx.app/api/predict/points/{wallet}" />
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="proxyPrefix">代理前缀（可选）</label>
+          <input id="proxyPrefix" type="text" placeholder="留空即直连。如有 CORS 问题填代理前缀，例如 https://你的域名/proxy?url=" />
+        </div>
+      </div>
+      <div class="note">
+        如果请求失败提示 <b>Failed to fetch</b> 或 <b>CORS</b>，需要你自己的后端/Nginx/Cloudflare Worker 做转发代理。
+      </div>
+    </details>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="summary">钱包汇总</div>
+      <div class="tab" data-tab="detail">周明细</div>
+    </div>
+
+    <div class="filter-bar">
+      <span class="filter-label">筛选：</span>
+      <div class="control-group">
+        <label for="minPoints">周积分 ≥</label>
+        <input id="minPoints" type="number" min="0" step="any" placeholder="0" />
+      </div>
+      <div class="control-group">
+        <label for="minVolume">总交易量 ≥</label>
+        <input id="minVolume" type="number" min="0" step="any" placeholder="0" />
+      </div>
+      <label class="checkbox"><input id="onlyZeroReferral" type="checkbox" />只显示推荐积分=0</label>
+      <button id="resetFiltersBtn" class="secondary">重置筛选</button>
+      <span class="filter-hint" id="filterHint"></span>
+    </div>
+
+    <div class="tableBar">
+      <input id="filterInput" type="search" placeholder="按钱包、状态、错误信息、周数过滤..." />
+      <div class="rowCount" id="rowCount">0 行</div>
+      <button id="sampleBtn" class="secondary">填入示例</button>
+      <button id="copySummaryBtn" class="secondary" disabled>复制汇总表</button>
+      <button id="exportSummaryBtn" class="warn" disabled>导出汇总 CSV</button>
+      <button id="exportDetailBtn" class="warn" disabled>导出明细 CSV</button>
+    </div>
+
+    <div id="summaryBox" class="tableWrap"></div>
+    <div id="detailBox" class="tableWrap" style="display:none"></div>
+
+    <div id="log" class="log">等待开始...</div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      abort: false,
+      running: false,
+      totalWallets: 0,
+      completedWallets: 0,
+      successWallets: 0,
+      failedWallets: 0,
+      detailRows: [],
+      summaryRows: [],
+      startedAt: null,
+      activeTab: "summary",
+      filterText: "",
+      onlyCalculated: false,
+      minPoints: 0,
+      minVolume: 0,
+      onlyZeroReferral: false,
+      sort: {
+        summary: { key: "cost_per_point", dir: "asc" },
+        detail: { key: "cost_per_point", dir: "asc" },
+      },
+      bestWallet: null,
+    };
+
+    const numericKeys = new Set([
+      "rank", "total_points", "allocation_round_points",
+      "week", "trade_count",
+      "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt",
+      "paid_fee_usdt", "cost_usdt", "points", "referral_points",
+      "cost_per_point",
+    ]);
+
+    // Returns:
+    //   ""         -> no data (cost=0 and points=0) — sorted last as empty
+    //   "0"        -> free (cost=0 and points>0) — best, displays "免费"
+    //   "Infinity" -> paid but got 0 points — worst
+    //   "<num>"    -> normal USDT cost per point (smaller = cheaper = better)
+    function computeCostPerPoint(pointsStr, costStr) {
+      const p = Number(pointsStr || "0");
+      const c = Number(costStr || "0");
+      if (!isFinite(p) || !isFinite(c) || p < 0 || c < 0) return "";
+      if (p === 0 && c === 0) return "";
+      if (p === 0) return "Infinity";
+      if (c === 0) return "0";
+      return String(c / p);
+    }
+
+    function formatCostPerPoint(s) {
+      if (s === "" || s === undefined || s === null) return "—";
+      if (s === "Infinity") return "无积分";
+      const n = Number(s);
+      if (!isFinite(n) || n < 0) return "—";
+      if (n === 0) return "免费";
+      if (n >= 1) return "$" + n.toFixed(2);
+      if (n >= 0.01) return "$" + n.toFixed(4);
+      if (n >= 0.0001) return "$" + n.toFixed(5);
+      return "$" + n.toExponential(2);
+    }
+
+    // For sort/comparison: cheaper (smaller) is better.
+    function cppSortValue(v) {
+      if (v === "" || v === undefined || v === null) return Number.POSITIVE_INFINITY;
+      if (v === "Infinity") return Number.POSITIVE_INFINITY;
+      const n = Number(v);
+      return isFinite(n) && n >= 0 ? n : Number.POSITIVE_INFINITY;
+    }
+
+    function shortWallet(addr) {
+      if (!addr || addr.length < 12) return addr || "";
+      return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+    }
+
+    const detailColumns = [
+      ["wallet", "钱包"],
+      ["status", "状态"],
+      ["week", "周"],
+      ["calculated", "已结算"],
+      ["points", "周积分"],
+      ["cost_usdt", "成本 U"],
+      ["cost_per_point", "积分成本 $/积分"],
+      ["trade_count", "交易次数"],
+      ["paid_volume_usdt", "付费交易量"],
+      ["free_volume_usdt", "免费交易量"],
+      ["total_volume_usdt", "总交易量"],
+      ["paid_fee_usdt", "手续费"],
+      ["rank", "排名"],
+      ["total_points", "总积分"],
+      ["allocation_round_points", "本轮积分"],
+      ["week_start_utc8", "开始时间 UTC+8"],
+      ["week_end_utc8", "结束时间 UTC+8"],
+      ["referral_points", "推荐积分"],
+      ["error", "错误"]
+    ];
+
+    const summaryColumns = [
+      ["wallet", "钱包"],
+      ["status", "状态"],
+      ["points", "统计周积分"],
+      ["cost_usdt", "成本 U"],
+      ["cost_per_point", "积分成本 $/积分"],
+      ["selected_weeks", "统计周数"],
+      ["calculated_all", "全部已结算"],
+      ["trade_count", "交易次数"],
+      ["total_volume_usdt", "总交易量"],
+      ["paid_volume_usdt", "付费交易量"],
+      ["free_volume_usdt", "免费交易量"],
+      ["paid_fee_usdt", "手续费"],
+      ["rank", "排名"],
+      ["total_points", "当前总积分"],
+      ["referral_points", "推荐积分"],
+      ["error", "错误"]
+    ];
+
+    function log(message) {
+      const el = $("log");
+      const now = new Date().toLocaleTimeString();
+      el.textContent += `\n[${now}] ${message}`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setLog(message) {
+      $("log").textContent = message;
+    }
+
+    function extractWallets(text) {
+      const matches = text.match(/0x[a-fA-F0-9]{40}/g) || [];
+      const seen = new Set();
+      const wallets = [];
+      for (const w of matches) {
+        const lower = w.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          wallets.push(lower);
+        }
+      }
+      return wallets;
+    }
+
+    function parseWeeks(input) {
+      const s = input.trim();
+      if (!s) return null;
+
+      const result = new Set();
+      const parts = s.split(",");
+
+      for (const raw of parts) {
+        const part = raw.trim();
+        if (!part) continue;
+
+        if (part.includes("-")) {
+          const pair = part.split("-").map(x => Number(x.trim()));
+          if (pair.length !== 2 || !Number.isInteger(pair[0]) || !Number.isInteger(pair[1])) {
+            throw new Error(`周数格式错误：${part}`);
+          }
+          let [start, end] = pair;
+          if (start > end) [start, end] = [end, start];
+          for (let i = start; i <= end; i++) result.add(i);
+        } else {
+          const n = Number(part);
+          if (!Number.isInteger(n)) throw new Error(`周数格式错误：${part}`);
+          result.add(n);
+        }
+      }
+
+      return [...result].sort((a, b) => a - b);
+    }
+
+    function expandExponential(value) {
+      const s = String(value).trim();
+      if (!/[eE]/.test(s)) return s;
+
+      const n = Number(s);
+      if (!Number.isFinite(n)) return "0";
+
+      // 足够覆盖这个接口里常见的小数位，不用于金融结算，只用于展示/统计。
+      return n.toFixed(30).replace(/0+$/, "").replace(/\.$/, "");
+    }
+
+    function normalizeDecimal(value) {
+      if (value === null || value === undefined || value === "") return "0";
+      let s = expandExponential(value).replace(/,/g, "").trim();
+      if (!s || s === ".") return "0";
+
+      let sign = "";
+      if (s[0] === "-") {
+        sign = "-";
+        s = s.slice(1);
+      } else if (s[0] === "+") {
+        s = s.slice(1);
+      }
+
+      if (!/^\d*(\.\d*)?$/.test(s)) return "0";
+      let [intPart, fracPart = ""] = s.split(".");
+      intPart = intPart.replace(/^0+(?=\d)/, "") || "0";
+      fracPart = fracPart.replace(/0+$/, "");
+      const out = fracPart ? `${intPart}.${fracPart}` : intPart;
+      return sign && out !== "0" ? sign + out : out;
+    }
+
+    function toScaled(value) {
+      const s = normalizeDecimal(value);
+      const negative = s.startsWith("-");
+      const body = negative ? s.slice(1) : s;
+      const [intPart, fracPart = ""] = body.split(".");
+      const digits = BigInt((intPart + fracPart).replace(/^0+(?=\d)/, "") || "0") * (negative ? -1n : 1n);
+      return { n: digits, scale: fracPart.length };
+    }
+
+    function pow10(n) {
+      return 10n ** BigInt(n);
+    }
+
+    function formatScaled(n, scale) {
+      const negative = n < 0n;
+      let s = (negative ? -n : n).toString();
+
+      if (scale > 0) {
+        if (s.length <= scale) s = "0".repeat(scale - s.length + 1) + s;
+        const idx = s.length - scale;
+        s = s.slice(0, idx) + "." + s.slice(idx);
+      }
+
+      s = s.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+      if (!s) s = "0";
+      return negative && s !== "0" ? "-" + s : s;
+    }
+
+    function decimalAdd(a, b) {
+      const A = toScaled(a);
+      const B = toScaled(b);
+      const scale = Math.max(A.scale, B.scale);
+      const n = A.n * pow10(scale - A.scale) + B.n * pow10(scale - B.scale);
+      return formatScaled(n, scale);
+    }
+
+    function decimalSum(values) {
+      return values.reduce((acc, v) => decimalAdd(acc, v), "0");
+    }
+
+    function shortDecimal(value, maxDp = 6) {
+      const s = normalizeDecimal(value);
+      if (!s.includes(".")) return s;
+      const negative = s.startsWith("-");
+      const body = negative ? s.slice(1) : s;
+      const [i, f = ""] = body.split(".");
+      const cut = f.slice(0, maxDp).replace(/0+$/, "");
+      const out = cut ? `${i}.${cut}` : i;
+      return negative ? "-" + out : out;
+    }
+
+    function timestampToUTC8(ts) {
+      if (!ts && ts !== 0) return "";
+      const n = Number(ts);
+      if (!Number.isFinite(n)) return "";
+      return new Date((n + 8 * 3600) * 1000).toISOString().replace("T", " ").slice(0, 19);
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function makeUrl(wallet) {
+      const template = $("apiTemplate").value.trim();
+      if (!template.includes("{wallet}")) throw new Error("API 模板必须包含 {wallet}");
+
+      const realUrl = template.replaceAll("{wallet}", wallet);
+      const proxyPrefix = $("proxyPrefix").value.trim();
+      return proxyPrefix ? proxyPrefix + encodeURIComponent(realUrl) : realUrl;
+    }
+
+    async function fetchJsonWithTimeout(url, timeoutMs) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { "Accept": "application/json" },
+          cache: "no-store",
+          signal: controller.signal
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${res.statusText}${text ? " - " + text.slice(0, 160) : ""}`);
+        }
+
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function fetchWallet(wallet) {
+      const retries = Math.max(0, Number($("retries").value || 0));
+      const timeoutMs = Math.max(3000, Number($("timeoutMs").value || 20000));
+      const url = makeUrl(wallet);
+
+      let lastError = "";
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        if (state.abort) throw new Error("已停止");
+        try {
+          return await fetchJsonWithTimeout(url, timeoutMs);
+        } catch (err) {
+          lastError = err && err.message ? err.message : String(err);
+          if (attempt < retries) {
+            await sleep(700 * (attempt + 1));
+          }
+        }
+      }
+      throw new Error(lastError || "请求失败");
+    }
+
+    function decimalMul(value, multiplierText) {
+      const A = toScaled(value);
+      const M = toScaled(multiplierText);
+      const n = A.n * M.n;
+      return formatScaled(n, A.scale + M.scale);
+    }
+
+    function readMultiplier(id, fallback) {
+      const raw = ($(id).value || "").trim();
+      if (!raw) return fallback;
+      const normalized = normalizeDecimal(raw);
+      return normalized === "0" && raw !== "0" ? fallback : normalized;
+    }
+
+    function buildRows(wallet, data, selectedWeeks) {
+      const rows = [];
+      const leaderboard = data && data.leaderboard ? data.leaderboard : {};
+      const weeks = Array.isArray(data && data.weeks) ? data.weeks : [];
+      const weekMap = new Map();
+
+      const pointsMul = readMultiplier("pointsMultiplier", "1.1");
+      const feeMul = readMultiplier("feeMultiplier", "0.9");
+
+      for (const w of weeks) {
+        weekMap.set(Number(w.week), w);
+      }
+
+      const targetWeeks = selectedWeeks === null
+        ? [...weekMap.keys()].sort((a, b) => a - b)
+        : selectedWeeks;
+
+      for (const weekNo of targetWeeks) {
+        const item = weekMap.get(Number(weekNo));
+
+        if (!item) {
+          rows.push({
+            wallet,
+            status: "week_not_found",
+            rank: leaderboard.rank ?? "",
+            total_points: normalizeDecimal(leaderboard.total_points ?? "0"),
+            allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
+            week: weekNo,
+            calculated: "",
+            week_start_utc8: "",
+            week_end_utc8: "",
+            trade_count: "0",
+            paid_volume_usdt: "0",
+            free_volume_usdt: "0",
+            total_volume_usdt: "0",
+            paid_fee_usdt: "0",
+            cost_usdt: "0",
+            points: "0",
+            cost_per_point: "",
+            referral_points: "0",
+            error: "接口没有返回这一周"
+          });
+          continue;
+        }
+
+        const paidVolume = normalizeDecimal(item.paid_volume_usdt ?? "0");
+        const freeVolume = normalizeDecimal(item.free_volume_usdt ?? "0");
+        const totalVolume = decimalAdd(paidVolume, freeVolume);
+        const rawFee = normalizeDecimal(item.paid_fee_usdt ?? "0");
+        const paidFee = decimalMul(rawFee, feeMul);
+        const rawPoints = normalizeDecimal(item.points ?? "0");
+        const points = decimalMul(rawPoints, pointsMul);
+        const referralPoints = normalizeDecimal(item.referral_points ?? "0");
+
+        rows.push({
+          wallet,
+          status: "ok",
+          rank: leaderboard.rank ?? "",
+          total_points: normalizeDecimal(leaderboard.total_points ?? "0"),
+          allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
+          week: item.week ?? weekNo,
+          calculated: item.calculated === true ? "true" : item.calculated === false ? "false" : "",
+          week_start_utc8: timestampToUTC8(item.week_start),
+          week_end_utc8: timestampToUTC8(item.week_end),
+          trade_count: String(item.trade_count ?? 0),
+          paid_volume_usdt: paidVolume,
+          free_volume_usdt: freeVolume,
+          total_volume_usdt: totalVolume,
+          paid_fee_usdt: paidFee,
+          cost_usdt: paidFee,
+          points,
+          cost_per_point: computeCostPerPoint(points, paidFee),
+          referral_points: referralPoints,
+          error: ""
+        });
+      }
+
+      return rows;
+    }
+
+    function buildErrorDetailRow(wallet, error) {
+      return {
+        wallet,
+        status: "error",
+        rank: "",
+        total_points: "0",
+        allocation_round_points: "0",
+        week: "",
+        calculated: "",
+        week_start_utc8: "",
+        week_end_utc8: "",
+        trade_count: "0",
+        paid_volume_usdt: "0",
+        free_volume_usdt: "0",
+        total_volume_usdt: "0",
+        paid_fee_usdt: "0",
+        cost_usdt: "0",
+        points: "0",
+        cost_per_point: "",
+        referral_points: "0",
+        error
+      };
+    }
+
+    function buildSummaryRows(detailRows) {
+      const map = new Map();
+
+      for (const row of detailRows) {
+        const wallet = row.wallet;
+        if (!map.has(wallet)) {
+          map.set(wallet, {
+            wallet,
+            status: row.status === "error" ? "error" : "ok",
+            rank: row.rank || "",
+            total_points: row.total_points || "0",
+            selected_weeks: [],
+            calculated_all: "true",
+            trade_count: "0",
+            paid_volume_usdt: "0",
+            free_volume_usdt: "0",
+            total_volume_usdt: "0",
+            paid_fee_usdt: "0",
+            cost_usdt: "0",
+            points: "0",
+            referral_points: "0",
+            error: ""
+          });
+        }
+
+        const s = map.get(wallet);
+        if (row.status === "error") {
+          s.status = "error";
+          s.calculated_all = "";
+          s.error = row.error || "请求失败";
+          continue;
+        }
+
+        if (row.status !== "ok") {
+          if (!s.error) s.error = row.error || row.status;
+          continue;
+        }
+
+        s.rank = row.rank || s.rank;
+        s.total_points = row.total_points || s.total_points;
+        s.selected_weeks.push(String(row.week));
+
+        if (String(row.calculated).toLowerCase() !== "true") {
+          s.calculated_all = "false";
+        }
+
+        s.trade_count = decimalAdd(s.trade_count, row.trade_count || "0");
+        s.paid_volume_usdt = decimalAdd(s.paid_volume_usdt, row.paid_volume_usdt || "0");
+        s.free_volume_usdt = decimalAdd(s.free_volume_usdt, row.free_volume_usdt || "0");
+        s.total_volume_usdt = decimalAdd(s.total_volume_usdt, row.total_volume_usdt || "0");
+        s.paid_fee_usdt = decimalAdd(s.paid_fee_usdt, row.paid_fee_usdt || "0");
+        s.cost_usdt = decimalAdd(s.cost_usdt, row.cost_usdt || "0");
+        s.points = decimalAdd(s.points, row.points || "0");
+        s.referral_points = decimalAdd(s.referral_points, row.referral_points || "0");
+      }
+
+      return [...map.values()].map(row => ({
+        ...row,
+        selected_weeks: row.selected_weeks.join(","),
+        cost_per_point: computeCostPerPoint(row.points, row.cost_usdt)
+      }));
+    }
+
+    function updateStats() {
+      $("statProgress").textContent = `${state.completedWallets} / ${state.totalWallets}`;
+      $("statSuccess").textContent = `${state.successWallets} / ${state.failedWallets}`;
+
+      const okRows = state.detailRows.filter(r => r.status === "ok");
+      const totalVolume = decimalSum(okRows.map(r => r.total_volume_usdt));
+      const totalCost = decimalSum(okRows.map(r => r.cost_usdt));
+      const totalTrades = decimalSum(okRows.map(r => r.trade_count));
+      const totalPoints = decimalSum(okRows.map(r => r.points));
+      const calculated = okRows.filter(r => r.calculated === "true").length;
+      const uncalculated = okRows.filter(r => r.calculated === "false").length;
+
+      $("statVolume").textContent = shortDecimal(totalVolume, 4);
+      $("statCost").textContent = shortDecimal(totalCost, 6) + " U";
+      $("statTrades").textContent = totalTrades;
+      $("statPoints").textContent = shortDecimal(totalPoints, 6);
+      $("statCalcSplit").textContent = `${calculated} / ${uncalculated}`;
+
+      const overallCpp = computeCostPerPoint(totalPoints, totalCost);
+      $("statOverallCpp").textContent = formatCostPerPoint(overallCpp);
+
+      const best = findBestWallet(state.summaryRows);
+      state.bestWallet = best ? best.wallet : null;
+      const panel = $("bestPanel");
+      if (best) {
+        panel.hidden = false;
+        $("bestAddr").textContent = best.wallet;
+        $("bestPoints").textContent = shortDecimal(best.points, 4);
+        $("bestCost").textContent = shortDecimal(best.cost_usdt, 6);
+        $("bestCpp").textContent = formatCostPerPoint(best.cost_per_point);
+      } else {
+        panel.hidden = true;
+      }
+
+      const pct = state.totalWallets ? Math.round(state.completedWallets / state.totalWallets * 100) : 0;
+      $("progressBar").style.width = `${pct}%`;
+
+      const hasRows = state.detailRows.length > 0;
+      $("exportSummaryBtn").disabled = !hasRows;
+      $("exportDetailBtn").disabled = !hasRows;
+      $("copySummaryBtn").disabled = !hasRows;
+    }
+
+    function cellClass(key, value) {
+      if (key === "status") {
+        if (value === "ok") return "ok";
+        if (value === "error") return "badText";
+        return "warnText";
+      }
+      if (key === "calculated" || key === "calculated_all") {
+        if (value === "true") return "ok";
+        if (value === "false") return "warnText";
+      }
+      if (key === "wallet") return "wallet";
+      if (key === "cost_per_point") {
+        if (value === "" || value === undefined || value === null) return "cpp none";
+        if (value === "Infinity") return "cpp inf";
+        const n = Number(value);
+        if (n === 0) return "cpp free";
+        if (!isFinite(n) || n < 0) return "cpp none";
+        return "cpp";
+      }
+      return "";
+    }
+
+    function filterRows(rows, tableKey) {
+      let result = rows;
+      if (state.onlyCalculated) {
+        if (tableKey === "detail") {
+          result = result.filter(r => String(r.calculated).toLowerCase() === "true");
+        } else if (tableKey === "summary") {
+          result = result.filter(r => String(r.calculated_all).toLowerCase() === "true");
+        }
+      }
+      if (state.minPoints > 0) {
+        result = result.filter(r => {
+          const n = Number(r.points);
+          return isFinite(n) && n >= state.minPoints;
+        });
+      }
+      if (state.minVolume > 0) {
+        result = result.filter(r => {
+          const n = Number(r.total_volume_usdt);
+          return isFinite(n) && n >= state.minVolume;
+        });
+      }
+      if (state.onlyZeroReferral) {
+        result = result.filter(r => {
+          const n = Number(r.referral_points);
+          return isFinite(n) && n === 0;
+        });
+      }
+      const q = state.filterText.trim().toLowerCase();
+      if (!q) return result;
+      return result.filter(row => {
+        for (const key in row) {
+          const v = row[key];
+          if (v === null || v === undefined) continue;
+          if (String(v).toLowerCase().includes(q)) return true;
+        }
+        return false;
+      });
+    }
+
+    function updateFilterHint() {
+      const parts = [];
+      if (state.minPoints > 0) parts.push(`周积分≥${state.minPoints}`);
+      if (state.minVolume > 0) parts.push(`总交易量≥${state.minVolume}`);
+      if (state.onlyZeroReferral) parts.push("推荐积分=0");
+      if (state.onlyCalculated) parts.push("已结算");
+      const hint = $("filterHint");
+      if (parts.length) {
+        hint.textContent = `启用中: ${parts.join(" / ")}`;
+        hint.classList.add("active");
+      } else {
+        hint.textContent = "";
+        hint.classList.remove("active");
+      }
+    }
+
+    function sortRows(rows, sortState) {
+      if (!sortState.key) return rows;
+      const key = sortState.key;
+      const dir = sortState.dir === "desc" ? -1 : 1;
+      const numeric = numericKeys.has(key);
+      const isCpp = key === "cost_per_point";
+
+      return [...rows].sort((a, b) => {
+        const va = a[key], vb = b[key];
+        if (isCpp) {
+          // Custom: "" → push to end regardless of direction; "Infinity" → worst.
+          const aEmpty = va === "" || va === null || va === undefined;
+          const bEmpty = vb === "" || vb === null || vb === undefined;
+          if (aEmpty && bEmpty) return 0;
+          if (aEmpty) return 1;
+          if (bEmpty) return -1;
+          return (cppSortValue(va) - cppSortValue(vb)) * dir;
+        }
+        const aEmpty = va === "" || va === null || va === undefined;
+        const bEmpty = vb === "" || vb === null || vb === undefined;
+        if (aEmpty && bEmpty) return 0;
+        if (aEmpty) return 1;
+        if (bEmpty) return -1;
+        if (numeric) {
+          return (Number(va) - Number(vb)) * dir;
+        }
+        return String(va).localeCompare(String(vb)) * dir;
+      });
+    }
+
+    function renderCellValue(td, key, value, ctx) {
+      if (key === "cost_per_point") {
+        td.innerHTML = "";
+        const wrap = document.createElement("span");
+        wrap.className = "cppInner";
+        const num = document.createElement("span");
+        num.className = "cppVal";
+        num.textContent = formatCostPerPoint(value);
+        const bar = document.createElement("span");
+        bar.className = "cppBar";
+        const fill = document.createElement("span");
+        fill.className = "cppFill";
+
+        let pct = 0;
+        let title = "";
+        if (value === "" || value === undefined || value === null) {
+          pct = 0;
+          title = "无数据";
+        } else if (value === "Infinity") {
+          pct = 6;
+          title = "有成本但没拿到积分";
+        } else {
+          const n = Number(value);
+          if (n === 0) {
+            pct = 100;
+            title = "成本为 0，相当于免费拿到积分";
+          } else if (ctx && isFinite(ctx.minPosCpp) && ctx.minPosCpp > 0 && n > 0) {
+            pct = Math.max(4, Math.min(100, (ctx.minPosCpp / n) * 100));
+            title = `${formatCostPerPoint(value)}，每个积分实际花费`;
+          } else if (n > 0) {
+            pct = 100;
+            title = `${formatCostPerPoint(value)}，每个积分实际花费`;
+          }
+        }
+        fill.style.width = pct + "%";
+
+        bar.appendChild(fill);
+        wrap.append(num, bar);
+        td.appendChild(wrap);
+        td.title = title;
+        return;
+      }
+      if (key === "wallet" && value) {
+        td.innerHTML = "";
+        td.title = value;
+        const wrap = document.createElement("span");
+        wrap.className = "walletInner";
+        const link = document.createElement("a");
+        link.className = "walletLink";
+        link.textContent = value;
+        try {
+          link.href = makeUrl(value);
+        } catch { link.href = "#"; }
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        const btn = document.createElement("button");
+        btn.className = "copyBtn";
+        btn.type = "button";
+        btn.textContent = "复制";
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          try {
+            await navigator.clipboard.writeText(value);
+            btn.textContent = "已复制";
+            setTimeout(() => { btn.textContent = "复制"; }, 1200);
+          } catch { btn.textContent = "失败"; }
+        });
+        wrap.append(link, btn);
+        td.appendChild(wrap);
+        return;
+      }
+      td.textContent = value;
+      td.title = value;
+    }
+
+    function findBestWallet(summaryRows) {
+      let best = null;
+      let bestVal = Number.POSITIVE_INFINITY;
+      for (const row of summaryRows) {
+        if (row.status !== "ok") continue;
+        const cpp = row.cost_per_point;
+        if (cpp === "" || cpp === undefined || cpp === null) continue;
+        if (cpp === "Infinity") continue;
+        const v = cppSortValue(cpp);
+        if (v < bestVal) {
+          bestVal = v;
+          best = row;
+        }
+      }
+      return best && bestVal !== Number.POSITIVE_INFINITY ? best : null;
+    }
+
+    function renderTable(containerId, rows, columns, tableKey) {
+      const box = $(containerId);
+      const filtered = filterRows(rows, tableKey);
+      const sorted = sortRows(filtered, state.sort[tableKey]);
+
+      if (state.activeTab === tableKey) {
+        $("rowCount").textContent = `${sorted.length} 行${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
+      }
+
+      if (!sorted.length) {
+        box.innerHTML = `<div style="padding:18px;color:var(--muted)">${rows.length ? "没有匹配的行" : "暂无数据"}</div>`;
+        return;
+      }
+
+      // For the cost-per-point bar we want shorter cost = fuller bar.
+      // Find the minimum positive cost-per-point in the visible rows and
+      // scale every other value by (minPos / value).
+      let minPosCpp = Number.POSITIVE_INFINITY;
+      let hasFree = false;
+      for (const r of sorted) {
+        const v = r.cost_per_point;
+        if (v === "" || v === undefined || v === null) continue;
+        if (v === "Infinity") continue;
+        const n = Number(v);
+        if (!isFinite(n) || n < 0) continue;
+        if (n === 0) { hasFree = true; continue; }
+        if (n < minPosCpp) minPosCpp = n;
+      }
+      const ctx = { minPosCpp, hasFree };
+      const bestWallet = state.bestWallet;
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      const sortState = state.sort[tableKey];
+
+      const indexTh = document.createElement("th");
+      indexTh.textContent = "#";
+      trh.appendChild(indexTh);
+
+      for (const [key, label] of columns) {
+        const th = document.createElement("th");
+        th.className = "sortable";
+        if (sortState.key === key) th.classList.add("activeSort");
+        const labelSpan = document.createElement("span");
+        labelSpan.textContent = label;
+        const arrow = document.createElement("span");
+        arrow.className = "arrow";
+        arrow.textContent = sortState.key === key ? (sortState.dir === "desc" ? "▼" : "▲") : "↕";
+        th.append(labelSpan, arrow);
+        th.addEventListener("click", () => {
+          const s = state.sort[tableKey];
+          if (s.key === key) {
+            s.dir = s.dir === "asc" ? "desc" : "asc";
+          } else {
+            s.key = key;
+            s.dir = numericKeys.has(key) ? "desc" : "asc";
+          }
+          renderAll();
+        });
+        trh.appendChild(th);
+      }
+      thead.appendChild(trh);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      sorted.forEach((row, idx) => {
+        const tr = document.createElement("tr");
+        if (tableKey === "summary" && bestWallet && row.wallet === bestWallet) {
+          tr.classList.add("best-row");
+        }
+        const indexTd = document.createElement("td");
+        indexTd.textContent = String(idx + 1);
+        tr.appendChild(indexTd);
+        for (const [key] of columns) {
+          const td = document.createElement("td");
+          const value = row[key] ?? "";
+          renderCellValue(td, key, value, ctx);
+          const cls = cellClass(key, value);
+          if (cls) td.className = td.className ? `${td.className} ${cls}` : cls;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+
+      box.innerHTML = "";
+      box.appendChild(table);
+    }
+
+    function renderAll() {
+      state.summaryRows = buildSummaryRows(state.detailRows);
+      const best = findBestWallet(state.summaryRows);
+      state.bestWallet = best ? best.wallet : null;
+      updateFilterHint();
+      renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
+      renderTable("detailBox", state.detailRows, detailColumns, "detail");
+      updateStats();
+    }
+
+    async function runQuery() {
+      if (state.running) return;
+
+      const wallets = extractWallets($("wallets").value);
+      if (!wallets.length) {
+        alert("没有识别到有效钱包地址");
+        return;
+      }
+
+      let selectedWeeks = null;
+      try {
+        selectedWeeks = parseWeeks($("weeks").value);
+      } catch (err) {
+        alert(err.message || String(err));
+        return;
+      }
+
+      let concurrency = Math.max(1, Math.min(50, Number($("concurrency").value || 5)));
+      concurrency = Math.min(concurrency, wallets.length);
+
+      state.abort = false;
+      state.running = true;
+      state.totalWallets = wallets.length;
+      state.completedWallets = 0;
+      state.successWallets = 0;
+      state.failedWallets = 0;
+      state.detailRows = [];
+      state.summaryRows = [];
+      state.startedAt = Date.now();
+
+      $("startBtn").disabled = true;
+      $("stopBtn").disabled = false;
+      setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}`);
+      renderAll();
+
+      let cursor = 0;
+
+      async function worker(workerId) {
+        while (!state.abort) {
+          const idx = cursor++;
+          if (idx >= wallets.length) break;
+
+          const wallet = wallets[idx];
+          try {
+            log(`查询中 ${idx + 1}/${wallets.length}: ${wallet}`);
+            const data = await fetchWallet(wallet);
+            const rows = buildRows(wallet, data, selectedWeeks);
+            state.detailRows.push(...rows);
+            state.successWallets += 1;
+            log(`完成 ${idx + 1}/${wallets.length}: ${wallet}`);
+          } catch (err) {
+            const message = err && err.message ? err.message : String(err);
+            state.detailRows.push(buildErrorDetailRow(wallet, message));
+            state.failedWallets += 1;
+            log(`失败 ${idx + 1}/${wallets.length}: ${wallet} | ${message}`);
+          } finally {
+            state.completedWallets += 1;
+            renderAll();
+          }
+        }
+      }
+
+      try {
+        await Promise.all(Array.from({ length: concurrency }, (_, i) => worker(i + 1)));
+      } finally {
+        state.running = false;
+        $("startBtn").disabled = false;
+        $("stopBtn").disabled = true;
+        const seconds = ((Date.now() - state.startedAt) / 1000).toFixed(1);
+        log(state.abort ? `已停止，用时 ${seconds}s` : `全部完成，用时 ${seconds}s`);
+        renderAll();
+      }
+    }
+
+    function clearResults() {
+      state.abort = false;
+      state.running = false;
+      state.totalWallets = 0;
+      state.completedWallets = 0;
+      state.successWallets = 0;
+      state.failedWallets = 0;
+      state.detailRows = [];
+      state.summaryRows = [];
+      $("progressBar").style.width = "0%";
+      setLog("已清空结果。等待开始...");
+      renderAll();
+    }
+
+    function csvEscape(value) {
+      const s = String(value ?? "");
+      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function downloadCsv(filename, rows, columns) {
+      if (!rows.length) return;
+      const header = columns.map(([, label]) => csvEscape(label)).join(",");
+      const lines = rows.map(row => columns.map(([key]) => csvEscape(row[key])).join(","));
+      const csv = "\ufeff" + [header, ...lines].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function copySummary() {
+      if (!state.summaryRows.length) return;
+      const header = summaryColumns.map(([, label]) => label).join("\t");
+      const lines = state.summaryRows.map(row => summaryColumns.map(([key]) => row[key] ?? "").join("\t"));
+      const text = [header, ...lines].join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        log("已复制汇总表，可直接粘贴到 Excel/Google Sheets。 ");
+      } catch (err) {
+        alert("复制失败，浏览器可能不允许剪贴板权限。可以改用导出 CSV。");
+      }
+    }
+
+    function fillSample() {
+      $("wallets").value = [
+        "0x6dcf1f5b09dfbe711fe7278c072eecac55a8e327",
+        "0x1111111111111111111111111111111111111111",
+        "0x2222222222222222222222222222222222222222"
+      ].join("\n");
+      $("weeks").value = "17,18";
+      setLog("已填入示例。把示例钱包替换成你自己的即可。 ");
+    }
+
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const name = tab.dataset.tab;
+        state.activeTab = name;
+        $("summaryBox").style.display = name === "summary" ? "block" : "none";
+        $("detailBox").style.display = name === "detail" ? "block" : "none";
+        renderAll();
+      });
+    });
+
+    $("filterInput").addEventListener("input", (e) => {
+      state.filterText = e.target.value || "";
+      renderAll();
+    });
+
+    $("onlyCalculated").addEventListener("change", (e) => {
+      state.onlyCalculated = e.target.checked;
+      renderAll();
+    });
+
+    function readMinInput(el) {
+      const raw = (el.value || "").trim();
+      if (!raw) return 0;
+      const n = Number(raw);
+      return isFinite(n) && n > 0 ? n : 0;
+    }
+
+    $("minPoints").addEventListener("input", (e) => {
+      state.minPoints = readMinInput(e.target);
+      renderAll();
+    });
+
+    $("minVolume").addEventListener("input", (e) => {
+      state.minVolume = readMinInput(e.target);
+      renderAll();
+    });
+
+    $("onlyZeroReferral").addEventListener("change", (e) => {
+      state.onlyZeroReferral = e.target.checked;
+      renderAll();
+    });
+
+    $("resetFiltersBtn").addEventListener("click", () => {
+      state.minPoints = 0;
+      state.minVolume = 0;
+      state.onlyZeroReferral = false;
+      $("minPoints").value = "";
+      $("minVolume").value = "";
+      $("onlyZeroReferral").checked = false;
+      renderAll();
+    });
+
+    $("bestCopyBtn").addEventListener("click", async () => {
+      const addr = $("bestAddr").textContent || "";
+      if (!addr || addr === "-") return;
+      try {
+        await navigator.clipboard.writeText(addr);
+        const btn = $("bestCopyBtn");
+        const old = btn.textContent;
+        btn.textContent = "已复制";
+        setTimeout(() => { btn.textContent = old; }, 1200);
+      } catch {}
+    });
+
+    $("startBtn").addEventListener("click", runQuery);
+    $("stopBtn").addEventListener("click", () => { state.abort = true; log("正在停止，已发出的请求会等待返回..."); });
+    $("clearBtn").addEventListener("click", clearResults);
+    $("sampleBtn").addEventListener("click", fillSample);
+    $("exportSummaryBtn").addEventListener("click", () => downloadCsv("opinx_summary.csv", state.summaryRows, summaryColumns));
+    $("exportDetailBtn").addEventListener("click", () => downloadCsv("opinx_detail.csv", state.detailRows, detailColumns));
+    $("copySummaryBtn").addEventListener("click", copySummary);
+
+    renderAll();
+  </script>
+</body>
+</html>
