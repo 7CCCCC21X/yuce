@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OPINX Predict 积分批量查询（含周明细与汇总统计）</title>
+  <title>OPINX Predict 积分批量查询（份额与交易量分析）</title>
   <style>
     :root {
       --bg: #f5f4ef;
@@ -280,15 +280,22 @@
 
     td.wallet {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      max-width: 210px;
     }
 
     td.wallet .walletInner {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      max-width: 100%;
     }
 
     td.wallet a.walletLink {
+      display: inline-block;
+      max-width: 118px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: var(--accent);
       text-decoration: underline;
       font-size: 13px;
@@ -296,7 +303,8 @@
 
     td.wallet a.walletLink:hover { color: var(--accent-hover); }
 
-    td.wallet .copyBtn {
+    td.wallet .copyBtn,
+    .best-panel .copyBtn {
       background: transparent;
       color: var(--muted);
       border: 1px solid var(--line-strong);
@@ -307,7 +315,8 @@
       font-weight: 600;
     }
 
-    td.wallet .copyBtn:hover {
+    td.wallet .copyBtn:hover,
+    .best-panel .copyBtn:hover {
       color: var(--accent);
       border-color: var(--accent);
     }
@@ -440,6 +449,12 @@
     }
 
     .best-panel .best-addr {
+      display: inline-block;
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       background: rgba(255,255,255,.6);
       padding: 2px 8px;
@@ -622,15 +637,71 @@
       text-decoration: none;
       letter-spacing: .3px;
     }
+
+    tr.visited-row {
+      background: linear-gradient(90deg, rgba(29, 99, 237, .08), rgba(29, 99, 237, 0) 65%);
+    }
+
+    tr.visited-row:hover {
+      background: linear-gradient(90deg, rgba(29, 99, 237, .13), rgba(29, 99, 237, 0) 65%);
+    }
+
+    tr.best-row.visited-row {
+      background: linear-gradient(90deg, rgba(20,122,61,.13), rgba(29,99,237,.08) 70%);
+    }
+
+    tr.best-row.visited-row:hover {
+      background: linear-gradient(90deg, rgba(20,122,61,.18), rgba(29,99,237,.12) 70%);
+    }
+
+    td.wallet a.walletLink.viewed {
+      color: #7a5d00;
+    }
+
+    .walletBadge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.4;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .walletBadge.viewed {
+      color: #6b5200;
+      background: #f4e7b4;
+      border: 1px solid #dfca79;
+    }
+
+
+    .filter-bar input.compact { width: 96px; }
+    .filter-bar select,
+    .tableBar select {
+      padding: 5px 8px;
+      font-size: 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    .quickBtnHot {
+      color: var(--ok) !important;
+      border-color: rgba(20, 122, 61, .45) !important;
+      background: rgba(20, 122, 61, .08) !important;
+    }
+
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>OPINX Predict 积分批量查询（含周明细与汇总统计）</h1>
-    <div class="subtitle">将多个地址按行粘贴，每行一个地址</div>
+    <div class="subtitle">将多个地址按行粘贴，每行一个地址。点击钱包地址会打开 Debank BSC 历史记录，并自动标记为“已看”。</div>
 
     <div id="walletsDrop" class="wallets-dropzone">
-      <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址。也可以把 .csv / .txt 文件拖到这里。">0x6dcf1f5b09dfbe711fe7278c072eecac55a8e327</textarea>
+      <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址。也可以把 .csv / .txt 文件拖到这里。"></textarea>
     </div>
 
     <div class="wallet-list-bar">
@@ -662,11 +733,13 @@
       <span class="sep">|</span>
       <span class="label">汇总积分 Σ:</span><span id="statPoints">0</span>
       <span class="sep">|</span>
-      <span class="label">汇总成本</span><span id="statCost">0 U</span>
+      <span class="label">汇总手续费</span><span id="statCost">0 U</span>
       <span class="sep">|</span>
       <span class="label">整体积分成本</span><span id="statOverallCpp" class="hot">—</span><span class="muted-suffix"> /积分</span>
       <span class="sep">|</span>
       <span class="label">汇总交易量</span><span id="statVolume">0</span>
+      <span class="sep">|</span>
+      <span class="label">汇总份额</span><span id="statShares">0</span>
       <span class="sep">|</span>
       <span class="label">交易次数</span><span id="statTrades">0</span>
       <span class="sep">|</span>
@@ -674,12 +747,14 @@
     </div>
 
     <div id="bestPanel" class="best-panel" hidden>
-      <span class="best-tag">积分成本最低</span>
+      <span id="bestModeTag" class="best-tag">积分成本最低</span>
       <code id="bestAddr" class="best-addr">-</code>
       <button id="bestCopyBtn" class="copyBtn" type="button">复制</button>
       <span class="best-stat"><span class="muted">积分</span> <b id="bestPoints">0</b></span>
-      <span class="best-stat"><span class="muted">成本</span> <b id="bestCost">0</b> U</span>
+      <span class="best-stat"><span class="muted">手续费</span> <b id="bestCost">0</b> U</span>
       <span class="best-stat"><span class="muted">积分成本</span> <b id="bestCpp" class="hot">—</b> <span class="muted">/积分</span></span>
+      <span class="best-stat"><span class="muted">份额</span> <b id="bestShares">—</b></span>
+      <span class="best-stat"><span class="muted">份额/分</span> <b id="bestSharesPerPoint">—</b></span>
     </div>
 
     <div class="progressOuter"><div id="progressBar" class="progressInner"></div></div>
@@ -714,8 +789,17 @@
           <input id="feeMultiplier" type="number" min="0" step="0.01" value="0.9" />
         </div>
         <div>
-          <label for="apiTemplate">API 模板</label>
+          <label for="apiTemplate">积分 API 模板</label>
           <input id="apiTemplate" type="text" value="https://tool.opinx.app/api/predict/points/{wallet}" />
+        </div>
+        <div>
+          <label class="checkbox" style="margin-top:24px;"><input id="queryShares" type="checkbox" checked />查询份额</label>
+          <div class="help">使用每周 week_start / week_end 调用 trades 接口。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="tradesApiTemplate">份额 API 模板</label>
+          <input id="tradesApiTemplate" type="text" value="https://tool.opinx.app/api/predict/trades/{wallet}?start_time={start_time}&end_time={end_time}" />
+          <div class="help">会自动把积分接口返回的 week_start / week_end 填入 start_time / end_time，避免周时间错位。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="proxyPrefix">代理前缀（可选）</label>
@@ -723,7 +807,7 @@
         </div>
       </div>
       <div class="note">
-        如果请求失败提示 <b>Failed to fetch</b> 或 <b>CORS</b>，需要你自己的后端/Nginx/Cloudflare Worker 做转发代理。
+        如果请求失败提示 <b>Failed to fetch</b> 或 <b>CORS</b>，需要你自己的后端/Nginx/Cloudflare Worker 做转发代理。份额查询会额外增加每个钱包每周 1 次 trades 请求。
       </div>
     </details>
 
@@ -735,29 +819,84 @@
     <div class="filter-bar">
       <span class="filter-label">筛选：</span>
       <div class="control-group">
-        <label for="minPoints">周积分 ≥</label>
-        <input id="minPoints" type="number" min="0" step="any" placeholder="0" />
+        <label for="minPoints">积分 ≥</label>
+        <input id="minPoints" class="compact" type="number" min="0" step="any" placeholder="0" />
       </div>
       <div class="control-group">
         <label for="minVolume">总交易量 ≥</label>
-        <input id="minVolume" type="number" min="0" step="any" placeholder="0" />
+        <input id="minVolume" class="compact" type="number" min="0" step="any" placeholder="0" />
       </div>
-      <label class="checkbox"><input id="onlyZeroReferral" type="checkbox" />只显示推荐积分=0</label>
+      <div class="control-group">
+        <label for="minTrades">交易次数 ≥</label>
+        <input id="minTrades" class="compact" type="number" min="0" step="any" placeholder="0" />
+      </div>
+      <div class="control-group">
+        <label for="maxCpp">积分成本 ≤</label>
+        <input id="maxCpp" class="compact" type="number" min="0" step="any" placeholder="0.00005" />
+      </div>
+      <div class="control-group">
+        <label for="maxTotalVolumePerPoint">总量/分 ≤</label>
+        <input id="maxTotalVolumePerPoint" class="compact" type="number" min="0" step="any" placeholder="1" />
+      </div>
+      <div class="control-group">
+        <label for="maxPaidVolumePerPoint">付费量/分 ≤</label>
+        <input id="maxPaidVolumePerPoint" class="compact" type="number" min="0" step="any" placeholder="1" />
+      </div>
+      <div class="control-group">
+        <label for="maxSharesPerPoint">份额/分 ≤</label>
+        <input id="maxSharesPerPoint" class="compact" type="number" min="0" step="any" placeholder="1" />
+      </div>
+      <div class="control-group">
+        <label for="minCost">手续费 ≥</label>
+        <input id="minCost" class="compact" type="number" min="0" step="any" placeholder="0" />
+      </div>
+      <div class="control-group">
+        <label for="topNSelect">Top</label>
+        <select id="topNSelect">
+          <option value="0">全部</option>
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+      <label class="checkbox"><input id="onlyZeroReferral" type="checkbox" />推荐积分=0</label>
+      <label class="checkbox"><input id="excludeLowSample" type="checkbox" />排除低样本</label>
+      <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
       <button id="resetFiltersBtn" class="secondary">重置筛选</button>
       <span class="filter-hint" id="filterHint"></span>
     </div>
 
     <div class="tableBar">
-      <input id="filterInput" type="search" placeholder="按钱包、状态、错误信息、周数过滤..." />
+      <input id="filterInput" type="search" placeholder="按钱包、标签、状态、错误信息、周数过滤..." />
       <div class="rowCount" id="rowCount">0 行</div>
+      <select id="sortPresetSelect" title="推荐排序">
+        <option value="cost_per_point:asc">积分成本最低</option>
+        <option value="points:desc">积分最多</option>
+        <option value="total_volume_per_point:asc">总量/分最低</option>
+        <option value="paid_volume_per_point:asc">付费量/分最低</option>
+        <option value="shares_per_point:asc">份额/分最低</option>
+        <option value="total_volume_usdt:desc">交易量最高</option>
+        <option value="total_volume_shares:desc">份额最高</option>
+      </select>
+      <select id="highlightModeSelect" title="最佳高亮规则">
+        <option value="cost_per_point">高亮：积分成本最低</option>
+        <option value="points">高亮：积分最多</option>
+        <option value="total_volume_per_point">高亮：总量/分最低</option>
+        <option value="paid_volume_per_point">高亮：付费量/分最低</option>
+        <option value="shares_per_point">高亮：份额/分最低</option>
+        <option value="total_volume_shares">高亮：份额最高</option>
+      </select>
       <button id="sampleBtn" class="secondary">填入示例</button>
       <button id="copySummaryBtn" class="secondary" disabled>复制汇总表</button>
+      <button id="copyFilteredWalletsBtn" class="secondary" type="button" disabled>复制当前钱包</button>
       <button id="exportSummaryBtn" class="warn" disabled>导出汇总 CSV</button>
       <button id="exportDetailBtn" class="warn" disabled>导出明细 CSV</button>
       <button id="saveSnapshotBtn" class="secondary" type="button" disabled>保存快照</button>
       <select id="snapshotSelect" style="padding:6px 10px;font-size:13px;"><option value="">— 无对比 —</option></select>
       <button id="exportDeltaBtn" class="warn" type="button" disabled>导出变化 CSV</button>
-      <button id="clearLocalBtn" class="bad" type="button" title="清空钱包清单、标签、快照">清除本地数据</button>
+      <button id="clearVisitedBtn" class="secondary" type="button">清除已看</button>
+      <button id="clearLocalBtn" class="bad" type="button" title="清空钱包清单、标签、快照、已看记录">清除本地数据</button>
     </div>
 
     <div id="summaryBox" class="tableWrap"></div>
@@ -784,7 +923,16 @@
       onlyCalculated: false,
       minPoints: 0,
       minVolume: 0,
+      minTrades: 0,
+      maxCpp: 0,
+      maxTotalVolumePerPoint: 0,
+      maxPaidVolumePerPoint: 0,
+      maxSharesPerPoint: 0,
+      minCost: 0,
       onlyZeroReferral: false,
+      excludeLowSample: false,
+      topN: 0,
+      highlightMode: "cost_per_point",
       sort: {
         summary: { key: "cost_per_point", dir: "asc" },
         detail: { key: "cost_per_point", dir: "asc" },
@@ -794,12 +942,14 @@
       walletLists: {},
       snapshots: [],
       activeSnapshotId: "",
+      visitedWallets: new Set(),
     };
 
     const STORAGE_KEYS = {
       tags: "opinx:walletTags",
       lists: "opinx:walletLists",
       snapshots: "opinx:snapshots",
+      visited: "opinx:visitedWallets",
     };
     const MAX_SNAPSHOTS = 20;
 
@@ -819,11 +969,28 @@
     }
 
     const numericKeys = new Set([
-      "rank", "total_points", "allocation_round_points",
+      "total_points", "allocation_round_points",
       "week", "trade_count",
       "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt",
       "paid_fee_usdt", "cost_usdt", "points", "referral_points",
       "cost_per_point",
+      "total_volume_shares", "shares_per_point",
+      "total_volume_per_point", "paid_volume_per_point", "free_volume_per_point",
+      "delta_points", "delta_cost_usdt", "delta_cost_per_point",
+      "week_start_ts", "week_end_ts",
+    ]);
+
+    const CPP_KEYS = new Set(["cost_per_point", "delta_cost_per_point"]);
+    const VPP_KEYS = new Set(["total_volume_per_point", "paid_volume_per_point", "free_volume_per_point", "shares_per_point"]);
+    const TWO_DECIMAL_DISPLAY_KEYS = new Set([
+      "paid_volume_usdt",
+      "free_volume_usdt",
+      "total_volume_usdt",
+      "total_volume_shares",
+      "cost_usdt",
+      "paid_fee_usdt",
+      "points",
+      "total_points"
     ]);
 
     // Returns:
@@ -839,6 +1006,34 @@
       if (p === 0) return "Infinity";
       if (c === 0) return "0";
       return String(c / p);
+    }
+
+    function computeVolumePerPoint(pointsStr, volumeStr) {
+      const p = Number(pointsStr || "0");
+      const v = Number(volumeStr || "0");
+      if (!isFinite(p) || !isFinite(v) || p < 0 || v < 0) return "";
+      if (p === 0 && v === 0) return "";
+      if (p === 0) return "Infinity";
+      return String(v / p);
+    }
+
+    function computeOptionalVolumePerPoint(pointsStr, volumeStr) {
+      if (volumeStr === "" || volumeStr === undefined || volumeStr === null) return "";
+      return computeVolumePerPoint(pointsStr, volumeStr);
+    }
+
+    function formatVolumePerPoint(s) {
+      if (s === "" || s === undefined || s === null) return "—";
+      if (s === "Infinity") return "无积分";
+      const n = Number(s);
+      if (!isFinite(n) || n < 0) return "—";
+      return n.toFixed(2);
+    }
+
+    function vppSortValue(v) {
+      if (v === "" || v === undefined || v === null || v === "Infinity") return Number.POSITIVE_INFINITY;
+      const n = Number(v);
+      return isFinite(n) && n >= 0 ? n : Number.POSITIVE_INFINITY;
     }
 
     function formatCostPerPoint(s) {
@@ -866,24 +1061,149 @@
       return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
     }
 
+    function normalizeWalletKey(wallet) {
+      return String(wallet || "").trim().toLowerCase();
+    }
+
+    function debankHistoryUrl(wallet) {
+      const w = normalizeWalletKey(wallet);
+      return `https://debank.com/profile/${encodeURIComponent(w)}/history?chain=bsc`;
+    }
+
+    function loadVisitedWallets() {
+      const list = loadLocal(STORAGE_KEYS.visited, []);
+      if (!Array.isArray(list)) return new Set();
+      return new Set(list.map(normalizeWalletKey).filter(Boolean));
+    }
+
+    function saveVisitedWallets() {
+      saveLocal(STORAGE_KEYS.visited, [...state.visitedWallets]);
+    }
+
+    function markWalletVisited(wallet) {
+      const w = normalizeWalletKey(wallet);
+      if (!w) return;
+      if (!state.visitedWallets.has(w)) {
+        state.visitedWallets.add(w);
+        saveVisitedWallets();
+        scheduleRender();
+      }
+    }
+
+
+    function num(value, fallback = 0) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function isValidCpp(v) {
+      if (v === "" || v === undefined || v === null || v === "Infinity") return false;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0;
+    }
+
+    function classifyGrade(row) {
+      if (row.status !== "ok") return "风险";
+      const cpp = row.cost_per_point;
+      const points = num(row.points);
+      const trades = num(row.trade_count);
+      const settled = String(row.calculated_all).toLowerCase() === "true";
+      if (cpp === "Infinity") return "风险";
+      if (!isValidCpp(cpp)) return "—";
+      const c = Number(cpp);
+      if ((c === 0 && points >= 1000) || (c <= 0.00005 && points >= 10000 && settled)) return "S";
+      if (c <= 0.0001 && points >= 5000) return "A";
+      if (c <= 0.0003 && points >= 1000 && trades >= 5) return "B";
+      return "C";
+    }
+
+    function getActiveSnapshotMap() {
+      const snap = state.snapshots.find(s => s.id === state.activeSnapshotId);
+      if (!snap) return null;
+      return new Map(snap.rows.map(r => [normalizeWalletKey(r.wallet), r]));
+    }
+
+    function computeBudgetPoints(cpp, budget) {
+      if (!budget || budget <= 0 || !isValidCpp(cpp)) return "";
+      const c = Number(cpp);
+      if (c === 0) return "Infinity";
+      return String(budget / c);
+    }
+
+    function computeTargetCost(cpp, targetPoints) {
+      if (!targetPoints || targetPoints <= 0 || !isValidCpp(cpp)) return "";
+      const c = Number(cpp);
+      if (c === 0) return "0";
+      return String(targetPoints * c);
+    }
+
+    function enrichSummaryRows(rows) {
+      const snapshotMap = getActiveSnapshotMap();
+
+      for (const row of rows) {
+        if (snapshotMap) {
+          const base = snapshotMap.get(normalizeWalletKey(row.wallet)) || {};
+          row.delta_points = decimalSub(row.points || "0", base.points || "0");
+          row.delta_cost_usdt = decimalSub(row.cost_usdt || "0", base.cost_usdt || "0");
+          row.delta_cost_per_point = computeCostPerPoint(row.delta_points, row.delta_cost_usdt);
+        } else {
+          row.delta_points = "";
+          row.delta_cost_usdt = "";
+          row.delta_cost_per_point = "";
+        }
+
+        row.total_volume_per_point = computeVolumePerPoint(row.points, row.total_volume_usdt);
+        row.paid_volume_per_point = computeVolumePerPoint(row.points, row.paid_volume_usdt);
+        row.free_volume_per_point = computeVolumePerPoint(row.points, row.free_volume_usdt);
+        row.shares_per_point = computeOptionalVolumePerPoint(row.points, row.total_volume_shares);
+      }
+
+      return rows;
+    }
+
+    function bestModeLabel(mode) {
+      const map = {
+        cost_per_point: "积分成本最低",
+        points: "积分最多",
+        total_volume_per_point: "总量/分最低",
+        paid_volume_per_point: "付费量/分最低",
+        shares_per_point: "份额/分最低",
+        total_volume_shares: "份额最高",
+      };
+      return map[mode] || "积分成本最低";
+    }
+
+    function passesLowSample(row) {
+      if (row.status !== "ok") return false;
+      const points = num(row.points);
+      const trades = num(row.trade_count);
+      const volume = num(row.total_volume_usdt);
+      return points >= 1000 && trades >= 10 && volume >= 100 && isValidCpp(row.cost_per_point);
+    }
+
     const detailColumns = [
       ["wallet", "钱包"],
       ["tag", "标签"],
       ["actions", "操作"],
       ["status", "状态"],
+      ["trade_count", "交易次数"],
       ["week", "周"],
       ["calculated", "已结算"],
       ["points", "周积分"],
-      ["cost_usdt", "成本 U"],
+      ["cost_usdt", "手续费"],
       ["cost_per_point", "积分成本 $/积分"],
-      ["trade_count", "交易次数"],
       ["paid_volume_usdt", "付费交易量"],
       ["free_volume_usdt", "免费交易量"],
       ["total_volume_usdt", "总交易量"],
-      ["paid_fee_usdt", "手续费"],
-      ["rank", "排名"],
+      ["total_volume_shares", "份额"],
+      ["total_volume_per_point", "总量/分"],
+      ["paid_volume_per_point", "付费量/分"],
+      ["free_volume_per_point", "免费量/分"],
+      ["shares_per_point", "份额/分"],
       ["total_points", "总积分"],
       ["allocation_round_points", "本轮积分"],
+      ["week_start_ts", "开始时间戳"],
+      ["week_end_ts", "结束时间戳"],
       ["week_start_utc8", "开始时间 UTC+8"],
       ["week_end_utc8", "结束时间 UTC+8"],
       ["referral_points", "推荐积分"],
@@ -895,23 +1215,26 @@
       ["tag", "标签"],
       ["actions", "操作"],
       ["status", "状态"],
-      ["points", "统计周积分"],
-      ["cost_usdt", "成本 U"],
-      ["cost_per_point", "积分成本 $/积分"],
-      ["selected_weeks", "统计周数"],
-      ["calculated_all", "全部已结算"],
       ["trade_count", "交易次数"],
-      ["total_volume_usdt", "总交易量"],
+      ["points", "统计周积分"],
+      ["cost_usdt", "手续费"],
+      ["cost_per_point", "积分成本 $/积分"],
       ["paid_volume_usdt", "付费交易量"],
       ["free_volume_usdt", "免费交易量"],
-      ["paid_fee_usdt", "手续费"],
-      ["rank", "排名"],
+      ["total_volume_usdt", "总交易量"],
+      ["total_volume_shares", "份额"],
+      ["total_volume_per_point", "总量/分"],
+      ["paid_volume_per_point", "付费量/分"],
+      ["free_volume_per_point", "免费量/分"],
+      ["shares_per_point", "份额/分"],
+      ["selected_weeks", "统计周数"],
+      ["calculated_all", "全部已结算"],
       ["total_points", "当前总积分"],
       ["referral_points", "推荐积分"],
       ["error", "错误"]
     ];
 
-    function log(message) {
+        function log(message) {
       const el = $("log");
       const now = new Date().toLocaleTimeString();
       el.textContent += `\n[${now}] ${message}`;
@@ -1058,6 +1381,13 @@
       return negative ? "-" + out : out;
     }
 
+    function formatTwoDecimal(value) {
+      if (value === "" || value === undefined || value === null) return "—";
+      const n = Number(String(value).replace(/,/g, ""));
+      if (!Number.isFinite(n)) return "—";
+      return n.toFixed(2);
+    }
+
     function timestampToUTC8(ts) {
       if (!ts && ts !== 0) return "";
       const n = Number(ts);
@@ -1069,13 +1399,35 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    function makeUrl(wallet) {
-      const template = $("apiTemplate").value.trim();
-      if (!template.includes("{wallet}")) throw new Error("API 模板必须包含 {wallet}");
-
-      const realUrl = template.replaceAll("{wallet}", wallet);
+    function applyProxy(realUrl) {
       const proxyPrefix = $("proxyPrefix").value.trim();
       return proxyPrefix ? proxyPrefix + encodeURIComponent(realUrl) : realUrl;
+    }
+
+    function makeUrl(wallet) {
+      const template = $("apiTemplate").value.trim();
+      if (!template.includes("{wallet}")) throw new Error("积分 API 模板必须包含 {wallet}");
+
+      const realUrl = template.replaceAll("{wallet}", wallet);
+      return applyProxy(realUrl);
+    }
+
+    function makeTradesUrl(wallet, startTime, endTime) {
+      const template = $("tradesApiTemplate").value.trim();
+      if (!template.includes("{wallet}") || !template.includes("{start_time}") || !template.includes("{end_time}")) {
+        throw new Error("份额 API 模板必须包含 {wallet}、{start_time}、{end_time}");
+      }
+
+      const realUrl = template
+        .replaceAll("{wallet}", wallet)
+        .replaceAll("{start_time}", String(startTime))
+        .replaceAll("{end_time}", String(endTime));
+      return applyProxy(realUrl);
+    }
+
+    function shouldQueryShares() {
+      const el = $("queryShares");
+      return !el || el.checked;
     }
 
     async function fetchJsonWithTimeout(url, timeoutMs) {
@@ -1120,10 +1472,9 @@
       },
     };
 
-    async function fetchWallet(wallet) {
+    async function fetchWithRetries(url) {
       const retries = Math.max(0, Number($("retries").value || 0));
       const timeoutMs = Math.max(3000, Number($("timeoutMs").value || 20000));
-      const url = makeUrl(wallet);
 
       let lastError = "";
       for (let attempt = 0; attempt <= retries; attempt++) {
@@ -1142,7 +1493,33 @@
       throw new Error(lastError || "请求失败");
     }
 
-    function decimalMul(value, multiplierText) {
+    async function fetchWallet(wallet) {
+      return fetchWithRetries(makeUrl(wallet));
+    }
+
+    async function fetchTradeShares(wallet, startTime, endTime) {
+      if (!shouldQueryShares()) return { shares: "", error: "" };
+      if (startTime === "" || endTime === "" || startTime === null || endTime === null || startTime === undefined || endTime === undefined) {
+        return { shares: "", error: "缺少 week_start / week_end，无法查询份额" };
+      }
+
+      try {
+        const data = await fetchWithRetries(makeTradesUrl(wallet, startTime, endTime));
+        return {
+          shares: normalizeDecimal(data && data.total_volume_shares != null ? data.total_volume_shares : "0"),
+          error: ""
+        };
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        if (state.abort || message === "已停止") throw err;
+        return {
+          shares: "",
+          error: `份额接口失败: ${message}`
+        };
+      }
+    }
+
+        function decimalMul(value, multiplierText) {
       const A = toScaled(value);
       const M = toScaled(multiplierText);
       const n = A.n * M.n;
@@ -1156,7 +1533,7 @@
       return normalized === "0" && raw !== "0" ? fallback : normalized;
     }
 
-    function buildRows(wallet, data, selectedWeeks) {
+    async function buildRows(wallet, data, selectedWeeks) {
       const rows = [];
       const leaderboard = data && data.leaderboard ? data.leaderboard : {};
       const weeks = Array.isArray(data && data.weeks) ? data.weeks : [];
@@ -1180,21 +1557,27 @@
           rows.push({
             wallet,
             status: "week_not_found",
-            rank: leaderboard.rank ?? "",
             total_points: normalizeDecimal(leaderboard.total_points ?? "0"),
             allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
             week: weekNo,
             calculated: "",
+            week_start_ts: "",
+            week_end_ts: "",
             week_start_utc8: "",
             week_end_utc8: "",
             trade_count: "0",
             paid_volume_usdt: "0",
             free_volume_usdt: "0",
             total_volume_usdt: "0",
+            total_volume_shares: "",
             paid_fee_usdt: "0",
             cost_usdt: "0",
             points: "0",
             cost_per_point: "",
+            total_volume_per_point: "",
+            paid_volume_per_point: "",
+            free_volume_per_point: "",
+            shares_per_point: "",
             referral_points: "0",
             error: "接口没有返回这一周"
           });
@@ -1209,27 +1592,37 @@
         const rawPoints = normalizeDecimal(item.points ?? "0");
         const points = decimalMul(rawPoints, pointsMul);
         const referralPoints = normalizeDecimal(item.referral_points ?? "0");
+        const weekStartTs = item.week_start ?? "";
+        const weekEndTs = item.week_end ?? "";
+        const shareResult = await fetchTradeShares(wallet, weekStartTs, weekEndTs);
+        const totalShares = shareResult.shares;
 
         rows.push({
           wallet,
           status: "ok",
-          rank: leaderboard.rank ?? "",
           total_points: normalizeDecimal(leaderboard.total_points ?? "0"),
           allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
           week: item.week ?? weekNo,
           calculated: item.calculated === true ? "true" : item.calculated === false ? "false" : "",
-          week_start_utc8: timestampToUTC8(item.week_start),
-          week_end_utc8: timestampToUTC8(item.week_end),
+          week_start_ts: String(weekStartTs ?? ""),
+          week_end_ts: String(weekEndTs ?? ""),
+          week_start_utc8: timestampToUTC8(weekStartTs),
+          week_end_utc8: timestampToUTC8(weekEndTs),
           trade_count: String(item.trade_count ?? 0),
           paid_volume_usdt: paidVolume,
           free_volume_usdt: freeVolume,
           total_volume_usdt: totalVolume,
+          total_volume_shares: totalShares,
           paid_fee_usdt: paidFee,
           cost_usdt: paidFee,
           points,
           cost_per_point: computeCostPerPoint(points, paidFee),
+          total_volume_per_point: computeVolumePerPoint(points, totalVolume),
+          paid_volume_per_point: computeVolumePerPoint(points, paidVolume),
+          free_volume_per_point: computeVolumePerPoint(points, freeVolume),
+          shares_per_point: computeOptionalVolumePerPoint(points, totalShares),
           referral_points: referralPoints,
-          error: ""
+          error: shareResult.error || ""
         });
       }
 
@@ -1240,21 +1633,27 @@
       return {
         wallet,
         status: "error",
-        rank: "",
         total_points: "0",
         allocation_round_points: "0",
         week: "",
         calculated: "",
+        week_start_ts: "",
+        week_end_ts: "",
         week_start_utc8: "",
         week_end_utc8: "",
         trade_count: "0",
         paid_volume_usdt: "0",
         free_volume_usdt: "0",
         total_volume_usdt: "0",
+        total_volume_shares: "",
         paid_fee_usdt: "0",
         cost_usdt: "0",
         points: "0",
         cost_per_point: "",
+        total_volume_per_point: "",
+        paid_volume_per_point: "",
+        free_volume_per_point: "",
+        shares_per_point: "",
         referral_points: "0",
         error
       };
@@ -1269,7 +1668,6 @@
           map.set(wallet, {
             wallet,
             status: row.status === "error" ? "error" : "ok",
-            rank: row.rank || "",
             total_points: row.total_points || "0",
             selected_weeks: [],
             calculated_all: "true",
@@ -1277,6 +1675,7 @@
             paid_volume_usdt: "0",
             free_volume_usdt: "0",
             total_volume_usdt: "0",
+            total_volume_shares: "",
             paid_fee_usdt: "0",
             cost_usdt: "0",
             points: "0",
@@ -1298,7 +1697,6 @@
           continue;
         }
 
-        s.rank = row.rank || s.rank;
         s.total_points = row.total_points || s.total_points;
         s.selected_weeks.push(String(row.week));
 
@@ -1310,28 +1708,40 @@
         s.paid_volume_usdt = decimalAdd(s.paid_volume_usdt, row.paid_volume_usdt || "0");
         s.free_volume_usdt = decimalAdd(s.free_volume_usdt, row.free_volume_usdt || "0");
         s.total_volume_usdt = decimalAdd(s.total_volume_usdt, row.total_volume_usdt || "0");
+        if (row.total_volume_shares !== "" && row.total_volume_shares !== undefined && row.total_volume_shares !== null) {
+          s.total_volume_shares = s.total_volume_shares === ""
+            ? normalizeDecimal(row.total_volume_shares)
+            : decimalAdd(s.total_volume_shares, row.total_volume_shares || "0");
+        }
         s.paid_fee_usdt = decimalAdd(s.paid_fee_usdt, row.paid_fee_usdt || "0");
         s.cost_usdt = decimalAdd(s.cost_usdt, row.cost_usdt || "0");
         s.points = decimalAdd(s.points, row.points || "0");
         s.referral_points = decimalAdd(s.referral_points, row.referral_points || "0");
+        if (row.error && row.error.startsWith("份额接口失败") && !s.error) s.error = row.error;
       }
 
-      return [...map.values()].map(row => ({
+      const rows = [...map.values()].map(row => ({
         ...row,
         selected_weeks: row.selected_weeks.join(","),
         cost_per_point: computeCostPerPoint(row.points, row.cost_usdt)
       }));
+
+      return enrichSummaryRows(rows);
     }
 
     function updateStats() {
       $("statProgress").textContent = `${state.completedWallets} / ${state.totalWallets}`;
       $("statSuccess").textContent = `${state.successWallets} / ${state.failedWallets}`;
 
-      let totalVolume = "0", totalCost = "0", totalTrades = "0", totalPoints = "0";
+      let totalVolume = "0", totalShares = "0", sharesCount = 0, totalCost = "0", totalTrades = "0", totalPoints = "0";
       let calculated = 0, uncalculated = 0;
       for (const r of state.detailRows) {
         if (r.status !== "ok") continue;
         totalVolume = decimalAdd(totalVolume, r.total_volume_usdt);
+        if (r.total_volume_shares !== "" && r.total_volume_shares !== undefined && r.total_volume_shares !== null) {
+          totalShares = decimalAdd(totalShares, r.total_volume_shares);
+          sharesCount += 1;
+        }
         totalCost = decimalAdd(totalCost, r.cost_usdt);
         totalTrades = decimalAdd(totalTrades, r.trade_count);
         totalPoints = decimalAdd(totalPoints, r.points);
@@ -1339,26 +1749,40 @@
         else if (r.calculated === "false") uncalculated += 1;
       }
 
-      $("statVolume").textContent = shortDecimal(totalVolume, 4);
+      $("statVolume").textContent = formatTwoDecimal(totalVolume);
+      const statShares = $("statShares");
+      if (statShares) statShares.textContent = sharesCount ? formatTwoDecimal(totalShares) : "—";
       $("statCost").textContent = shortDecimal(totalCost, 6) + " U";
       $("statTrades").textContent = totalTrades;
-      $("statPoints").textContent = shortDecimal(totalPoints, 6);
+      $("statPoints").textContent = formatTwoDecimal(totalPoints);
       $("statCalcSplit").textContent = `${calculated} / ${uncalculated}`;
 
       const overallCpp = computeCostPerPoint(totalPoints, totalCost);
       $("statOverallCpp").textContent = formatCostPerPoint(overallCpp);
 
-      const best = findBestWallet(state.summaryRows);
+      const best = findBestWallet(getSortedRows(state.summaryRows, "summary").sorted, state.highlightMode);
       state.bestWallet = best ? best.wallet : null;
       const panel = $("bestPanel");
       if (best) {
         panel.hidden = false;
-        $("bestAddr").textContent = best.wallet;
-        $("bestPoints").textContent = shortDecimal(best.points, 4);
+        $("bestModeTag").textContent = bestModeLabel(state.highlightMode);
+        const bestAddrEl = $("bestAddr");
+        bestAddrEl.textContent = shortWallet(best.wallet);
+        bestAddrEl.title = best.wallet;
+        bestAddrEl.dataset.wallet = best.wallet;
+        $("bestPoints").textContent = formatTwoDecimal(best.points);
         $("bestCost").textContent = shortDecimal(best.cost_usdt, 6);
         $("bestCpp").textContent = formatCostPerPoint(best.cost_per_point);
+        const bestSharesEl = $("bestShares");
+        const bestSharesPerPointEl = $("bestSharesPerPoint");
+        if (bestSharesEl) bestSharesEl.textContent = best.total_volume_shares ? formatTwoDecimal(best.total_volume_shares) : "—";
+        if (bestSharesPerPointEl) bestSharesPerPointEl.textContent = formatVolumePerPoint(best.shares_per_point);
       } else {
         panel.hidden = true;
+        const bestAddrEl = $("bestAddr");
+        bestAddrEl.textContent = "-";
+        bestAddrEl.title = "";
+        delete bestAddrEl.dataset.wallet;
       }
 
       const pct = state.totalWallets ? Math.round(state.completedWallets / state.totalWallets * 100) : 0;
@@ -1368,6 +1792,8 @@
       $("exportSummaryBtn").disabled = !hasRows;
       $("exportDetailBtn").disabled = !hasRows;
       $("copySummaryBtn").disabled = !hasRows;
+      const copyFilteredBtn = $("copyFilteredWalletsBtn");
+      if (copyFilteredBtn) copyFilteredBtn.disabled = !state.summaryRows.length;
       const saveSnapBtn = $("saveSnapshotBtn");
       if (saveSnapBtn) saveSnapBtn.disabled = !state.summaryRows.length;
       const expDeltaBtn = $("exportDeltaBtn");
@@ -1385,7 +1811,7 @@
         if (value === "false") return "warnText";
       }
       if (key === "wallet") return "wallet";
-      if (key === "cost_per_point") {
+      if (CPP_KEYS.has(key)) {
         if (value === "" || value === undefined || value === null) return "cpp none";
         if (value === "Infinity") return "cpp inf";
         const n = Number(value);
@@ -1417,11 +1843,47 @@
           return isFinite(n) && n >= state.minVolume;
         });
       }
+      if (state.minTrades > 0) {
+        result = result.filter(r => {
+          const n = Number(r.trade_count);
+          return isFinite(n) && n >= state.minTrades;
+        });
+      }
+      if (state.maxCpp > 0) {
+        result = result.filter(r => isValidCpp(r.cost_per_point) && Number(r.cost_per_point) <= state.maxCpp);
+      }
+      if (state.maxTotalVolumePerPoint > 0) {
+        result = result.filter(r => {
+          const v = vppSortValue(r.total_volume_per_point);
+          return isFinite(v) && v <= state.maxTotalVolumePerPoint;
+        });
+      }
+      if (state.maxPaidVolumePerPoint > 0) {
+        result = result.filter(r => {
+          const v = vppSortValue(r.paid_volume_per_point);
+          return isFinite(v) && v <= state.maxPaidVolumePerPoint;
+        });
+      }
+      if (state.maxSharesPerPoint > 0) {
+        result = result.filter(r => {
+          const v = vppSortValue(r.shares_per_point);
+          return isFinite(v) && v <= state.maxSharesPerPoint;
+        });
+      }
+      if (state.minCost > 0) {
+        result = result.filter(r => {
+          const n = Number(r.cost_usdt);
+          return isFinite(n) && n >= state.minCost;
+        });
+      }
       if (state.onlyZeroReferral) {
         result = result.filter(r => {
           const n = Number(r.referral_points);
           return isFinite(n) && n === 0;
         });
+      }
+      if (state.excludeLowSample) {
+        result = result.filter(passesLowSample);
       }
       const q = state.filterText.trim().toLowerCase();
       if (!q) return result;
@@ -1431,16 +1893,25 @@
           if (v === null || v === undefined) continue;
           if (String(v).toLowerCase().includes(q)) return true;
         }
-        return false;
+        const tag = state.walletTags[row.wallet] || "";
+        return tag.toLowerCase().includes(q);
       });
     }
 
     function updateFilterHint() {
       const parts = [];
-      if (state.minPoints > 0) parts.push(`周积分≥${state.minPoints}`);
+      if (state.minPoints > 0) parts.push(`积分≥${state.minPoints}`);
       if (state.minVolume > 0) parts.push(`总交易量≥${state.minVolume}`);
+      if (state.minTrades > 0) parts.push(`交易次数≥${state.minTrades}`);
+      if (state.maxCpp > 0) parts.push(`积分成本≤${state.maxCpp}`);
+      if (state.maxTotalVolumePerPoint > 0) parts.push(`总量/分≤${state.maxTotalVolumePerPoint}`);
+      if (state.maxPaidVolumePerPoint > 0) parts.push(`付费量/分≤${state.maxPaidVolumePerPoint}`);
+      if (state.maxSharesPerPoint > 0) parts.push(`份额/分≤${state.maxSharesPerPoint}`);
+      if (state.minCost > 0) parts.push(`手续费≥${state.minCost}U`);
       if (state.onlyZeroReferral) parts.push("推荐积分=0");
+      if (state.excludeLowSample) parts.push("排除低样本");
       if (state.onlyCalculated) parts.push("已结算");
+      if (state.topN > 0) parts.push(`Top ${state.topN}`);
       const hint = $("filterHint");
       if (parts.length) {
         hint.textContent = `启用中: ${parts.join(" / ")}`;
@@ -1456,10 +1927,19 @@
       const key = sortState.key;
       const dir = sortState.dir === "desc" ? -1 : 1;
       const numeric = numericKeys.has(key);
-      const isCpp = key === "cost_per_point";
+      const isCpp = CPP_KEYS.has(key);
+      const isVpp = VPP_KEYS.has(key);
 
       return [...rows].sort((a, b) => {
         const va = a[key], vb = b[key];
+        if (isVpp) {
+          const aBad = va === "" || va === null || va === undefined || va === "Infinity";
+          const bBad = vb === "" || vb === null || vb === undefined || vb === "Infinity";
+          if (aBad && bBad) return 0;
+          if (aBad) return 1;
+          if (bBad) return -1;
+          return (vppSortValue(va) - vppSortValue(vb)) * dir;
+        }
         if (isCpp) {
           // Custom: "" → push to end regardless of direction; "Infinity" → worst.
           const aEmpty = va === "" || va === null || va === undefined;
@@ -1475,7 +1955,12 @@
         if (aEmpty) return 1;
         if (bEmpty) return -1;
         if (numeric) {
-          return (Number(va) - Number(vb)) * dir;
+          const na = Number(va);
+          const nb = Number(vb);
+          if (!Number.isFinite(na) && !Number.isFinite(nb)) return 0;
+          if (!Number.isFinite(na)) return 1;
+          if (!Number.isFinite(nb)) return -1;
+          return (na - nb) * dir;
         }
         return String(va).localeCompare(String(vb)) * dir;
       });
@@ -1508,7 +1993,28 @@
         td.appendChild(btn);
         return;
       }
-      if (key === "cost_per_point") {
+      if (TWO_DECIMAL_DISPLAY_KEYS.has(key)) {
+        td.textContent = formatTwoDecimal(value);
+        td.title = value === "" || value === undefined || value === null ? "" : String(value);
+        return;
+      }
+      if (VPP_KEYS.has(key)) {
+        const unit = key === "shares_per_point" ? "份额" : "交易量";
+        td.textContent = formatVolumePerPoint(value);
+        td.title = value === "Infinity" ? `有${unit}但没有积分` : (value ? `${formatVolumePerPoint(value)} ${unit} / 1积分` : "");
+        return;
+      }
+      if (key === "delta_cost_usdt") {
+        td.textContent = value ? shortDecimal(value, 6) : "—";
+        td.title = value || "";
+        return;
+      }
+      if (key === "delta_points") {
+        td.textContent = value ? shortDecimal(value, 4) : "—";
+        td.title = value || "";
+        return;
+      }
+      if (CPP_KEYS.has(key)) {
         td.innerHTML = "";
         const wrap = document.createElement("span");
         wrap.className = "cppInner";
@@ -1527,14 +2033,14 @@
           title = "无数据";
         } else if (value === "Infinity") {
           pct = 6;
-          title = "有成本但没拿到积分";
+          title = "有手续费但没拿到积分";
         } else {
           const n = Number(value);
           if (n === 0) {
             pct = 100;
-            title = "成本为 0，相当于免费拿到积分";
-          } else if (ctx && isFinite(ctx.minPosCpp) && ctx.minPosCpp > 0 && n > 0) {
-            pct = Math.max(4, Math.min(100, (ctx.minPosCpp / n) * 100));
+            title = "手续费为 0，相当于免费拿到积分";
+          } else if (ctx && ctx.minByKey && isFinite(ctx.minByKey[key]) && ctx.minByKey[key] > 0 && n > 0) {
+            pct = Math.max(4, Math.min(100, (ctx.minByKey[key] / n) * 100));
             title = `${formatCostPerPoint(value)}，每个积分实际花费`;
           } else if (n > 0) {
             pct = 100;
@@ -1551,23 +2057,47 @@
       }
       if (key === "wallet" && value) {
         td.innerHTML = "";
-        td.title = value;
+
+        const walletKey = normalizeWalletKey(value);
+        const viewed = state.visitedWallets.has(walletKey);
+
+        td.title = viewed ? `${value}（已看）` : value;
+
         const wrap = document.createElement("span");
         wrap.className = "walletInner";
+
         const link = document.createElement("a");
         link.className = "walletLink";
-        link.textContent = value;
-        try {
-          link.href = makeUrl(value);
-        } catch { link.href = "#"; }
+        if (viewed) link.classList.add("viewed");
+        // 表格里只显示短地址，避免钱包列过宽；悬停、复制、跳转仍使用完整地址。
+        link.textContent = shortWallet(value);
+        link.title = value;
+        link.href = debankHistoryUrl(value);
+
+        // 在新标签打开 Debank，保留当前查询页面。
         link.target = "_blank";
         link.rel = "noopener noreferrer";
+
+        link.addEventListener("click", () => {
+          markWalletVisited(value);
+        });
+
+        wrap.appendChild(link);
+
+        if (viewed) {
+          const badge = document.createElement("span");
+          badge.className = "walletBadge viewed";
+          badge.textContent = "已看";
+          wrap.appendChild(badge);
+        }
+
         const btn = document.createElement("button");
         btn.className = "copyBtn";
         btn.type = "button";
         btn.textContent = "复制";
         btn.dataset.wallet = value;
-        wrap.append(link, btn);
+
+        wrap.appendChild(btn);
         td.appendChild(wrap);
         return;
       }
@@ -1575,21 +2105,34 @@
       td.title = value;
     }
 
-    function findBestWallet(summaryRows) {
+    function findBestWallet(summaryRows, mode = state.highlightMode) {
       let best = null;
-      let bestVal = Number.POSITIVE_INFINITY;
+      let bestVal = mode === "cost_per_point" || mode === "delta_cost_per_point" || VPP_KEYS.has(mode)
+        ? Number.POSITIVE_INFINITY
+        : Number.NEGATIVE_INFINITY;
+
       for (const row of summaryRows) {
         if (row.status !== "ok") continue;
-        const cpp = row.cost_per_point;
-        if (cpp === "" || cpp === undefined || cpp === null) continue;
-        if (cpp === "Infinity") continue;
-        const v = cppSortValue(cpp);
-        if (v < bestVal) {
-          bestVal = v;
-          best = row;
+        let value;
+        if (mode === "cost_per_point" || mode === "delta_cost_per_point") {
+          if (!isValidCpp(row[mode])) continue;
+          value = cppSortValue(row[mode]);
+          if (value < bestVal) { bestVal = value; best = row; }
+        } else if (VPP_KEYS.has(mode)) {
+          value = vppSortValue(row[mode]);
+          if (!Number.isFinite(value)) continue;
+          if (value < bestVal) { bestVal = value; best = row; }
+        } else if (mode === "points" || mode === "total_volume_shares") {
+          value = Number(row[mode]);
+          if (!Number.isFinite(value)) continue;
+          if (value > bestVal) { bestVal = value; best = row; }
+        } else {
+          if (!isValidCpp(row.cost_per_point)) continue;
+          value = cppSortValue(row.cost_per_point);
+          if (value < bestVal) { bestVal = value; best = row; }
         }
       }
-      return best && bestVal !== Number.POSITIVE_INFINITY ? best : null;
+      return best;
     }
 
     const SORTABLE_COLUMN = (key) => key !== "tag" && key !== "actions";
@@ -1598,7 +2141,7 @@
       const thead = document.createElement("thead");
       const trh = document.createElement("tr");
       const indexTh = document.createElement("th");
-      indexTh.textContent = "#";
+      indexTh.textContent = "序号";
       trh.appendChild(indexTh);
       for (const [key, label] of columns) {
         const th = document.createElement("th");
@@ -1618,6 +2161,7 @@
             } else {
               s.key = key;
               s.dir = numericKeys.has(key) ? "desc" : "asc";
+              if (CPP_KEYS.has(key)) s.dir = "asc";
             }
             renderAll();
           });
@@ -1641,9 +2185,15 @@
 
     function buildBodyRow(row, idx, columns, ctx, tableKey, bestWallet) {
       const tr = document.createElement("tr");
+
+      if (row.wallet && state.visitedWallets.has(normalizeWalletKey(row.wallet))) {
+        tr.classList.add("visited-row");
+      }
+
       if (tableKey === "summary" && bestWallet && row.wallet === bestWallet) {
         tr.classList.add("best-row");
       }
+
       const indexTd = document.createElement("td");
       indexTd.textContent = String(idx + 1);
       tr.appendChild(indexTd);
@@ -1659,31 +2209,45 @@
     }
 
     function computeCppCtx(sorted) {
-      let minPosCpp = Number.POSITIVE_INFINITY;
+      const minByKey = {};
+      for (const key of CPP_KEYS) minByKey[key] = Number.POSITIVE_INFINITY;
       let hasFree = false;
       for (const r of sorted) {
-        const v = r.cost_per_point;
-        if (v === "" || v === undefined || v === null) continue;
-        if (v === "Infinity") continue;
-        const n = Number(v);
-        if (!isFinite(n) || n < 0) continue;
-        if (n === 0) { hasFree = true; continue; }
-        if (n < minPosCpp) minPosCpp = n;
+        for (const key of CPP_KEYS) {
+          const v = r[key];
+          if (v === "" || v === undefined || v === null) continue;
+          if (v === "Infinity") continue;
+          const n = Number(v);
+          if (!isFinite(n) || n < 0) continue;
+          if (n === 0) { hasFree = true; continue; }
+          if (n < minByKey[key]) minByKey[key] = n;
+        }
       }
-      return { minPosCpp, hasFree };
+      return { minPosCpp: minByKey.cost_per_point, minByKey, hasFree };
     }
 
     const virtualState = { detail: null };
     const VIRTUAL_THRESHOLD = 120;
     let virtualRowHeight = 41;
 
+    function getSortedRows(rows, tableKey) {
+      const filtered = filterRows(rows, tableKey);
+      let sorted = sortRows(filtered, state.sort[tableKey]);
+      if (tableKey === "summary" && state.topN > 0) {
+        sorted = sorted.slice(0, state.topN);
+      }
+      return { filtered, sorted };
+    }
+
     function renderTable(containerId, rows, columns, tableKey) {
       const box = $(containerId);
-      const filtered = filterRows(rows, tableKey);
-      const sorted = sortRows(filtered, state.sort[tableKey]);
+      const view = getSortedRows(rows, tableKey);
+      const filtered = view.filtered;
+      const sorted = view.sorted;
 
       if (state.activeTab === tableKey) {
-        $("rowCount").textContent = `${sorted.length} 行${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
+        const topText = tableKey === "summary" && state.topN > 0 && filtered.length > sorted.length ? ` / 筛选后 ${filtered.length}` : "";
+        $("rowCount").textContent = `${sorted.length} 行${topText}${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
       }
 
       if (!sorted.length) {
@@ -1862,7 +2426,7 @@
         state.summaryRows = buildSummaryRows(state.detailRows);
         summaryDirty = false;
       }
-      const best = findBestWallet(state.summaryRows);
+      const best = findBestWallet(getSortedRows(state.summaryRows, "summary").sorted, state.highlightMode);
       state.bestWallet = best ? best.wallet : null;
       updateFilterHint();
       if (state.activeTab === "summary") {
@@ -1906,7 +2470,7 @@
 
       $("startBtn").disabled = true;
       $("stopBtn").disabled = false;
-      setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}`);
+      setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}，份额查询：${shouldQueryShares() ? "开启" : "关闭"}`);
       renderAll();
 
       let cursor = 0;
@@ -1920,7 +2484,7 @@
           try {
             log(`查询中 ${idx + 1}/${wallets.length}: ${wallet}`);
             const data = await fetchWallet(wallet);
-            const rows = buildRows(wallet, data, selectedWeeks);
+            const rows = await buildRows(wallet, data, selectedWeeks);
             state.detailRows.push(...rows);
             state.successWallets += 1;
             log(`完成 ${idx + 1}/${wallets.length}: ${wallet}`);
@@ -2022,11 +2586,31 @@
       }
     }
 
+
+    async function copyFilteredWallets() {
+      const rows = getSortedRows(state.summaryRows, "summary").sorted;
+      const seen = new Set();
+      const wallets = [];
+      for (const r of rows) {
+        const w = normalizeWalletKey(r.wallet);
+        if (!w || seen.has(w)) continue;
+        seen.add(w);
+        wallets.push(w);
+      }
+      if (!wallets.length) return;
+      try {
+        await navigator.clipboard.writeText(wallets.join("\n"));
+        log(`已复制当前筛选后的 ${wallets.length} 个钱包地址。`);
+      } catch (err) {
+        alert("复制失败，浏览器可能不允许剪贴板权限。");
+      }
+    }
+
     function fillSample() {
       $("wallets").value = [
-        "0x6dcf1f5b09dfbe711fe7278c072eecac55a8e327",
         "0x1111111111111111111111111111111111111111",
-        "0x2222222222222222222222222222222222222222"
+        "0x2222222222222222222222222222222222222222",
+        "0x3333333333333333333333333333333333333333"
       ].join("\n");
       $("weeks").value = "17,18";
       setLog("已填入示例。把示例钱包替换成你自己的即可。 ");
@@ -2071,23 +2655,128 @@
       renderAll();
     });
 
+    $("minTrades").addEventListener("input", (e) => {
+      state.minTrades = readMinInput(e.target);
+      renderAll();
+    });
+
+    $("maxCpp").addEventListener("input", (e) => {
+      state.maxCpp = readMinInput(e.target);
+      renderAll();
+    });
+
+    $("maxTotalVolumePerPoint").addEventListener("input", (e) => {
+      state.maxTotalVolumePerPoint = readMinInput(e.target);
+      renderAll();
+    });
+
+    $("maxPaidVolumePerPoint").addEventListener("input", (e) => {
+      state.maxPaidVolumePerPoint = readMinInput(e.target);
+      renderAll();
+    });
+
+    $("maxSharesPerPoint").addEventListener("input", (e) => {
+      state.maxSharesPerPoint = readMinInput(e.target);
+      renderAll();
+    });
+
+    $("minCost").addEventListener("input", (e) => {
+      state.minCost = readMinInput(e.target);
+      renderAll();
+    });
+
     $("onlyZeroReferral").addEventListener("change", (e) => {
       state.onlyZeroReferral = e.target.checked;
+      renderAll();
+    });
+
+
+    $("excludeLowSample").addEventListener("change", (e) => {
+      state.excludeLowSample = e.target.checked;
+      renderAll();
+    });
+
+    $("topNSelect").addEventListener("change", (e) => {
+      state.topN = readMinInput(e.target);
+      renderAll();
+    });
+
+    function applySortPreset(value) {
+      const [key, dir] = String(value || "cost_per_point:asc").split(":");
+      state.sort.summary = { key, dir: dir === "asc" ? "asc" : "desc" };
+      renderAll();
+    }
+
+    $("sortPresetSelect").addEventListener("change", (e) => applySortPreset(e.target.value));
+
+    $("highlightModeSelect").addEventListener("change", (e) => {
+      state.highlightMode = e.target.value || "cost_per_point";
+      renderAll();
+    });
+
+    $("quickBestBtn").addEventListener("click", () => {
+      state.minPoints = 10000;
+      state.minVolume = 0;
+      state.minTrades = 10;
+      state.maxCpp = 0.00005;
+      state.maxTotalVolumePerPoint = 0;
+      state.maxPaidVolumePerPoint = 0;
+      state.maxSharesPerPoint = 0;
+      state.minCost = 0;
+      state.onlyZeroReferral = true;
+      state.excludeLowSample = true;
+      state.onlyCalculated = true;
+      state.topN = 20;
+      state.sort.summary = { key: "cost_per_point", dir: "asc" };
+      state.highlightMode = "cost_per_point";
+      $("minPoints").value = "10000";
+      $("minVolume").value = "";
+      $("minTrades").value = "10";
+      $("maxCpp").value = "0.00005";
+      $("maxTotalVolumePerPoint").value = "";
+      $("maxPaidVolumePerPoint").value = "";
+      $("maxSharesPerPoint").value = "";
+      $("minCost").value = "";
+      $("onlyZeroReferral").checked = true;
+      $("excludeLowSample").checked = true;
+      $("onlyCalculated").checked = true;
+      $("topNSelect").value = "20";
+      $("sortPresetSelect").value = "cost_per_point:asc";
+      $("highlightModeSelect").value = "cost_per_point";
       renderAll();
     });
 
     $("resetFiltersBtn").addEventListener("click", () => {
       state.minPoints = 0;
       state.minVolume = 0;
+      state.minTrades = 0;
+      state.maxCpp = 0;
+      state.maxTotalVolumePerPoint = 0;
+      state.maxPaidVolumePerPoint = 0;
+      state.maxSharesPerPoint = 0;
+      state.minCost = 0;
       state.onlyZeroReferral = false;
+      state.excludeLowSample = false;
+      state.onlyCalculated = false;
+      state.topN = 0;
       $("minPoints").value = "";
       $("minVolume").value = "";
+      $("minTrades").value = "";
+      $("maxCpp").value = "";
+      $("maxTotalVolumePerPoint").value = "";
+      $("maxPaidVolumePerPoint").value = "";
+      $("maxSharesPerPoint").value = "";
+      $("minCost").value = "";
       $("onlyZeroReferral").checked = false;
+      $("excludeLowSample").checked = false;
+      $("onlyCalculated").checked = false;
+      $("topNSelect").value = "0";
       renderAll();
     });
 
     $("bestCopyBtn").addEventListener("click", async () => {
-      const addr = $("bestAddr").textContent || "";
+      const bestAddrEl = $("bestAddr");
+      const addr = bestAddrEl.dataset.wallet || bestAddrEl.textContent || "";
       if (!addr || addr === "-") return;
       try {
         await navigator.clipboard.writeText(addr);
@@ -2239,7 +2928,7 @@
       try {
         log(`重试: ${wallet}`);
         const data = await fetchWallet(wallet);
-        const rows = buildRows(wallet, data, weeks);
+        const rows = await buildRows(wallet, data, weeks);
         state.detailRows.push(...rows);
         log(`重试完成: ${wallet}`);
       } catch (err) {
@@ -2277,9 +2966,16 @@
       ["feeMultiplier", "fm"],
       ["maxQps", "q"],
       ["apiTemplate", "api"],
+      ["tradesApiTemplate", "trapi"],
       ["proxyPrefix", "px"],
       ["minPoints", "mp"],
       ["minVolume", "mv"],
+      ["minTrades", "mt"],
+      ["maxCpp", "mc"],
+      ["maxTotalVolumePerPoint", "tvp"],
+      ["maxPaidVolumePerPoint", "pvp"],
+      ["maxSharesPerPoint", "svp"],
+      ["minCost", "mcu"],
     ];
 
     function loadUrlParams() {
@@ -2292,6 +2988,12 @@
         }
         state.minPoints = readMinInput($("minPoints"));
         state.minVolume = readMinInput($("minVolume"));
+        state.minTrades = readMinInput($("minTrades"));
+        state.maxCpp = readMinInput($("maxCpp"));
+        state.maxTotalVolumePerPoint = readMinInput($("maxTotalVolumePerPoint"));
+        state.maxPaidVolumePerPoint = readMinInput($("maxPaidVolumePerPoint"));
+        state.maxSharesPerPoint = readMinInput($("maxSharesPerPoint"));
+        state.minCost = readMinInput($("minCost"));
       } catch {}
     }
 
@@ -2350,6 +3052,7 @@
           points: r.points || "0",
           cost_usdt: r.cost_usdt || "0",
           total_volume_usdt: r.total_volume_usdt || "0",
+          total_volume_shares: r.total_volume_shares || "0",
           trade_count: r.trade_count || "0",
         })),
       };
@@ -2362,13 +3065,15 @@
     $("snapshotSelect").addEventListener("change", (e) => {
       state.activeSnapshotId = e.target.value || "";
       $("exportDeltaBtn").disabled = !state.activeSnapshotId || !state.summaryRows.length;
+      summaryDirty = true;
+      renderAll();
     });
 
     $("exportDeltaBtn").addEventListener("click", () => {
       const snap = state.snapshots.find(s => s.id === state.activeSnapshotId);
       if (!snap) return;
       const baseMap = new Map(snap.rows.map(r => [r.wallet, r]));
-      const header = ["钱包","标签","当前积分","对比积分","Δ积分","当前成本","对比成本","Δ成本","当前总交易量","对比总交易量","Δ交易量","当前交易次数","对比交易次数","Δ次数"];
+      const header = ["钱包","标签","当前积分","对比积分","Δ积分","当前手续费","对比手续费","Δ手续费","新增积分成本","当前总交易量","对比总交易量","Δ交易量","当前份额","对比份额","Δ份额","当前交易次数","对比交易次数","Δ次数"];
       const lines = [header.map(csvEscape).join(",")];
       for (const r of state.summaryRows) {
         const base = baseMap.get(r.wallet) || {};
@@ -2377,27 +3082,40 @@
           state.walletTags[r.wallet] || "",
           r.points || "0", base.points || "0", decimalSub(r.points || "0", base.points || "0"),
           r.cost_usdt || "0", base.cost_usdt || "0", decimalSub(r.cost_usdt || "0", base.cost_usdt || "0"),
+          computeCostPerPoint(decimalSub(r.points || "0", base.points || "0"), decimalSub(r.cost_usdt || "0", base.cost_usdt || "0")),
           r.total_volume_usdt || "0", base.total_volume_usdt || "0", decimalSub(r.total_volume_usdt || "0", base.total_volume_usdt || "0"),
+          r.total_volume_shares || "0", base.total_volume_shares || "0", decimalSub(r.total_volume_shares || "0", base.total_volume_shares || "0"),
           r.trade_count || "0", base.trade_count || "0", decimalSub(r.trade_count || "0", base.trade_count || "0"),
         ];
         lines.push(cells.map(csvEscape).join(","));
       }
-      const csv = "﻿" + lines.join("\n");
+      const csv = "\ufeff" + lines.join("\n");
       triggerDownload(`opinx_delta_${snap.id}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
       log(`已导出变化对比：基准 ${snap.label}`);
     });
 
+    // ---- 清除已看 ----
+    $("clearVisitedBtn").addEventListener("click", () => {
+      if (!confirm("清除所有已看标记？")) return;
+      state.visitedWallets = new Set();
+      saveVisitedWallets();
+      scheduleRender();
+      log("已清除所有已看标记。");
+    });
+
     // ---- 清除本地数据 ----
     $("clearLocalBtn").addEventListener("click", () => {
-      if (!confirm("清除本地的钱包清单、标签、快照？此操作不可撤销。")) return;
+      if (!confirm("清除本地的钱包清单、标签、快照、已看记录？此操作不可撤销。")) return;
       state.walletTags = {};
       state.walletLists = {};
       state.snapshots = [];
       state.activeSnapshotId = "";
+      state.visitedWallets = new Set();
       try {
         localStorage.removeItem(STORAGE_KEYS.tags);
         localStorage.removeItem(STORAGE_KEYS.lists);
         localStorage.removeItem(STORAGE_KEYS.snapshots);
+        localStorage.removeItem(STORAGE_KEYS.visited);
       } catch {}
       rebuildWalletListSelect();
       rebuildSnapshotSelect();
@@ -2409,9 +3127,15 @@
     state.walletTags = loadLocal(STORAGE_KEYS.tags, {}) || {};
     state.walletLists = loadLocal(STORAGE_KEYS.lists, {}) || {};
     state.snapshots = loadLocal(STORAGE_KEYS.snapshots, []) || [];
+    state.visitedWallets = loadVisitedWallets();
     loadUrlParams();
     rebuildWalletListSelect();
     rebuildSnapshotSelect();
+
+    window.addEventListener("pageshow", () => {
+      state.visitedWallets = loadVisitedWallets();
+      scheduleRender();
+    });
 
     $("startBtn").addEventListener("click", runQuery);
     $("stopBtn").addEventListener("click", () => { state.abort = true; log("正在停止，已发出的请求会等待返回..."); });
@@ -2420,6 +3144,7 @@
     $("exportSummaryBtn").addEventListener("click", () => downloadCsv("opinx_summary.csv", state.summaryRows, summaryColumns));
     $("exportDetailBtn").addEventListener("click", () => downloadCsv("opinx_detail.csv", state.detailRows, detailColumns));
     $("copySummaryBtn").addEventListener("click", copySummary);
+    $("copyFilteredWalletsBtn").addEventListener("click", copyFilteredWallets);
 
     renderAll();
   </script>
