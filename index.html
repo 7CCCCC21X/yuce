@@ -101,6 +101,7 @@
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .tools { margin: 10px 0; gap: 8px; }
     .tableWrap { max-height: 700px; overflow: auto; border: 1px solid var(--line); background: var(--panel); }
+    .renderNotice { padding: 8px 12px; color: var(--warn); background: #fdf6e3; border-bottom: 1px solid var(--line); font-size: 12px; }
     table { width: 100%; border-collapse: collapse; min-width: 1480px; font-size: 13px; }
     th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; vertical-align: middle; }
     th { position: sticky; top: 0; z-index: 1; background: #fafaf7; color: var(--text); font-size: 12px; font-weight: 700; border-bottom: 1px solid var(--line-strong); }
@@ -351,6 +352,7 @@ https://bsc.drpc.org</textarea>
       failedWallets: 0,
       detailRows: [],
       summaryRows: [],
+      summaryMap: new Map(),
       activeTab: "summary",
       filterText: "",
       onlyCalculated: false,
@@ -436,14 +438,21 @@ https://bsc.drpc.org</textarea>
       ["error", "错误"]
     ];
 
+    const MAX_RENDER_ROWS = { summary: 1000, detail: 500 };
+    const RENDER_INTERVAL_MS = 600;
+    const MAX_LOG_LINES = 300;
+    let logLines = ["等待开始..."];
+
     function log(message) {
       const el = $("log");
       const now = new Date().toLocaleTimeString();
-      el.textContent += `\n[${now}] ${message}`;
+      logLines.push(`[${now}] ${message}`);
+      if (logLines.length > MAX_LOG_LINES) logLines = logLines.slice(-MAX_LOG_LINES);
+      el.textContent = logLines.join("\n");
       el.scrollTop = el.scrollHeight;
     }
 
-    function setLog(message) { $("log").textContent = message; }
+    function setLog(message) { logLines = [message]; $("log").textContent = message; }
 
     function extractWallets(text) {
       const matches = String(text || "").match(/0x[a-fA-F0-9]{40}/g) || [];
@@ -1114,12 +1123,19 @@ https://bsc.drpc.org</textarea>
     function renderTable(containerId, rows, columns, tableKey) {
       const box = $(containerId);
       const { sorted } = getSortedRows(rows, tableKey);
-      if (state.activeTab === tableKey) $("rowCount").textContent = `${sorted.length} 行${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
+      const renderLimit = MAX_RENDER_ROWS[tableKey] || 500;
+      const visibleRows = sorted.slice(0, renderLimit);
+      if (state.activeTab === tableKey) {
+        const filteredInfo = rows.length !== sorted.length ? ` / 筛选前 ${rows.length}` : "";
+        $("rowCount").textContent = sorted.length > renderLimit
+          ? `显示 ${visibleRows.length} / ${sorted.length} 行${filteredInfo}`
+          : `${sorted.length} 行${filteredInfo}`;
+      }
       if (!sorted.length) { box.innerHTML = `<div style="padding:18px;color:var(--muted)">${rows.length ? "没有匹配的行" : "暂无数据"}</div>`; return; }
       const table = document.createElement("table"); table.appendChild(buildThead(columns, tableKey));
       const tbody = document.createElement("tbody");
-      for (let i = 0; i < sorted.length; i++) {
-        const row = sorted[i]; const tr = document.createElement("tr");
+      for (let i = 0; i < visibleRows.length; i++) {
+        const row = visibleRows[i]; const tr = document.createElement("tr");
         if (tableKey === "summary" && state.bestWallet && row.wallet === state.bestWallet) tr.classList.add("best-row");
         const idxTd = document.createElement("td"); idxTd.textContent = String(i + 1); tr.appendChild(idxTd);
         for (const [key] of columns) {
@@ -1130,18 +1146,66 @@ https://bsc.drpc.org</textarea>
         }
         tbody.appendChild(tr);
       }
-      table.appendChild(tbody); box.innerHTML = ""; box.appendChild(table);
+      table.appendChild(tbody);
+      box.innerHTML = "";
+      if (sorted.length > renderLimit) {
+        const notice = document.createElement("div");
+        notice.className = "renderNotice";
+        notice.textContent = `为避免页面卡顿，当前只渲染前 ${renderLimit} 行；筛选、排序、复制当前钱包和导出 CSV 仍然基于全部 ${sorted.length} 行。`;
+        box.appendChild(notice);
+      }
+      box.appendChild(table);
     }
 
     let summaryDirty = true;
-    function renderAll() {
+    let renderTimer = null;
+
+    function refreshSummaryRowsIfNeeded() {
+      if (state.summaryMap && state.summaryMap.size) {
+        state.summaryRows = Array.from(state.summaryMap.values());
+        summaryDirty = false;
+        return;
+      }
       if (summaryDirty) { state.summaryRows = buildSummaryRows(state.detailRows); summaryDirty = false; }
+    }
+
+    function renderAll() {
+      refreshSummaryRowsIfNeeded();
       const best = findBestWallet(getSortedRows(state.summaryRows, "summary").sorted);
       state.bestWallet = best ? best.wallet : null;
       updateFilterHint();
       if (state.activeTab === "summary") renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
       else renderTable("detailBox", state.detailRows, detailColumns, "detail");
       updateStats();
+    }
+
+    function scheduleRender(force = false) {
+      if (force) {
+        if (renderTimer) clearTimeout(renderTimer);
+        renderTimer = null;
+        renderAll();
+        return;
+      }
+      if (renderTimer) return;
+      renderTimer = setTimeout(() => {
+        renderTimer = null;
+        renderAll();
+      }, RENDER_INTERVAL_MS);
+    }
+
+    function appendWalletRows(wallet, rows) {
+      state.detailRows.push(...rows);
+      const summary = buildSummaryRows(rows)[0];
+      if (summary) state.summaryMap.set(wallet, summary);
+      state.summaryRows = Array.from(state.summaryMap.values());
+      summaryDirty = false;
+    }
+
+    function updateProgressOnly() {
+      $("statProgress").textContent = `${state.completedWallets} / ${state.totalWallets}`;
+      $("statSuccess").textContent = `${state.successWallets} / ${state.failedWallets}`;
+      const pct = state.totalWallets ? Math.round(state.completedWallets / state.totalWallets * 100) : 0;
+      $("progressBar").style.width = `${pct}%`;
     }
 
     function updateStats() {
@@ -1225,7 +1289,7 @@ https://bsc.drpc.org</textarea>
       let selectedWeeks = null;
       try { selectedWeeks = parseWeeks($("weeks").value); } catch (err) { alert(err.message || String(err)); return; }
       let concurrency = Math.max(1, Math.min(30, Number($("concurrency").value || 5), wallets.length));
-      state.abort = false; state.running = true; state.totalWallets = wallets.length; state.completedWallets = 0; state.successWallets = 0; state.failedWallets = 0; state.detailRows = []; state.summaryRows = []; summaryDirty = true;
+      state.abort = false; state.running = true; state.totalWallets = wallets.length; state.completedWallets = 0; state.successWallets = 0; state.failedWallets = 0; state.detailRows = []; state.summaryRows = []; state.summaryMap = new Map(); summaryDirty = true;
       $("startBtn").disabled = true; $("stopBtn").disabled = false;
       setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}，份额：${shouldQueryShares() ? "开" : "关"}，持仓：${shouldQueryHoldings() ? "开" : "关"}，余额：${shouldQueryBalance() ? "开" : "关"}`);
       renderAll();
@@ -1236,31 +1300,33 @@ https://bsc.drpc.org</textarea>
           if (idx >= wallets.length) break;
           const wallet = wallets[idx];
           try {
-            log(`查询中 ${idx + 1}/${wallets.length}: ${wallet}`);
+            if (idx === 0 || (idx + 1) % 50 === 0) log(`查询中 ${idx + 1}/${wallets.length}: ${wallet}`);
             const rows = await queryWallet(wallet, selectedWeeks);
-            state.detailRows.push(...rows);
+            appendWalletRows(wallet, rows);
             if (rows.some(r => r.status === "ok" || r.status === "week_not_found")) state.successWallets += 1;
             else state.failedWallets += 1;
-            log(`完成 ${idx + 1}/${wallets.length}: ${wallet}`);
+            if ((idx + 1) % 50 === 0 || idx + 1 === wallets.length) log(`完成 ${idx + 1}/${wallets.length}: ${wallet}`);
           } catch (err) {
             const message = err && err.message ? err.message : String(err);
-            state.detailRows.push(buildErrorDetailRow(wallet, message));
+            appendWalletRows(wallet, [buildErrorDetailRow(wallet, message)]);
             state.failedWallets += 1;
             log(`失败 ${idx + 1}/${wallets.length}: ${wallet} | ${message}`);
           } finally {
-            state.completedWallets += 1; summaryDirty = true; renderAll();
+            state.completedWallets += 1;
+            updateProgressOnly();
+            scheduleRender();
           }
         }
       }
       try { await Promise.all(Array.from({ length: concurrency }, worker)); }
       finally {
         state.running = false; $("startBtn").disabled = false; $("stopBtn").disabled = true;
-        log(state.abort ? "已停止。" : "全部完成。"); renderAll();
+        log(state.abort ? "已停止。" : "全部完成。"); scheduleRender(true);
       }
     }
 
     function clearResults() {
-      state.abort = false; state.running = false; state.totalWallets = 0; state.completedWallets = 0; state.successWallets = 0; state.failedWallets = 0; state.detailRows = []; state.summaryRows = []; summaryDirty = true;
+      state.abort = false; state.running = false; state.totalWallets = 0; state.completedWallets = 0; state.successWallets = 0; state.failedWallets = 0; state.detailRows = []; state.summaryRows = []; state.summaryMap = new Map(); summaryDirty = true;
       $("progressBar").style.width = "0%"; setLog("已清空结果。等待开始..."); renderAll();
     }
 
