@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OPINX Predict 积分批量查询（份额与交易量分析）</title>
+  <title>OPINX Predict 积分批量查询（持仓金额 + USDT 可用余额）</title>
   <style>
     :root {
       --bg: #f5f4ef;
@@ -20,7 +20,6 @@
     }
 
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       background: var(--bg);
@@ -29,35 +28,11 @@
       line-height: 1.5;
       font-size: 14px;
     }
-
-    .wrap {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 22px 26px 40px;
-    }
-
-    h1 {
-      margin: 0 0 6px;
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: .2px;
-    }
-
-    .subtitle {
-      color: var(--muted);
-      margin-bottom: 14px;
-      font-size: 13px;
-    }
-
-    label {
-      display: inline-block;
-      margin: 0 6px 0 0;
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    textarea, input[type="text"], input[type="number"], input[type="search"], select {
+    .wrap { max-width: 1500px; margin: 0 auto; padding: 22px 26px 40px; }
+    h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; letter-spacing: .2px; }
+    .subtitle { color: var(--muted); margin-bottom: 14px; font-size: 13px; }
+    label { display: inline-block; margin: 0 6px 0 0; color: var(--text); font-size: 13px; font-weight: 600; }
+    textarea, input[type="text"], input[type="password"], input[type="number"], input[type="search"], select {
       color: var(--text);
       background: var(--panel);
       border: 1px solid var(--line-strong);
@@ -67,12 +42,10 @@
       font-size: 13px;
       font-family: inherit;
     }
-
     textarea:focus, input:focus, select:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px rgba(29, 99, 237, .12);
     }
-
     textarea {
       width: 100%;
       min-height: 160px;
@@ -81,37 +54,19 @@
       font-size: 13px;
       line-height: 1.7;
     }
-
     .field-block { margin-top: 10px; }
     .field-block input[type="text"] { width: 100%; }
-
-    .controls {
+    .controls, .tools, .tableBar, .filter-bar, .wallet-list-bar {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       flex-wrap: wrap;
-      margin: 14px 0 10px;
     }
-
-    .control-group {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .control-group input[type="number"],
-    .control-group input[type="text"] {
-      width: 72px;
-    }
-
+    .controls { margin: 14px 0 10px; gap: 14px; }
+    .control-group { display: inline-flex; align-items: center; gap: 6px; }
+    .control-group input[type="number"], .control-group input[type="text"] { width: 78px; }
     .control-group input.wide { width: 150px; }
-
-    .help {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 4px;
-    }
-
+    .help { color: var(--muted); font-size: 12px; margin-top: 4px; }
     button {
       border: 1px solid var(--accent);
       cursor: pointer;
@@ -123,597 +78,89 @@
       font-size: 13px;
       font-family: inherit;
     }
-
     button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-
-    button.secondary {
+    button.secondary, button.warn, button.bad {
       background: var(--panel);
       color: var(--text);
       border: 1px solid var(--line-strong);
     }
-
-    button.secondary:hover {
-      background: #efede6;
-      border-color: var(--line-strong);
-    }
-
-    button.warn {
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid var(--line-strong);
-    }
-
-    button.warn:hover { background: #efede6; }
-
-    button.bad {
-      background: var(--panel);
-      color: var(--bad);
-      border: 1px solid var(--line-strong);
-    }
-
+    button.secondary:hover, button.warn:hover { background: #efede6; border-color: var(--line-strong); }
+    button.bad { color: var(--bad); }
     button.bad:hover { background: #f8ecea; border-color: var(--bad); }
-
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
-
-    .checkbox {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      user-select: none;
-    }
-
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .checkbox { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; user-select: none; }
     .checkbox input { accent-color: var(--accent); }
-
-    .progress-line {
-      margin: 10px 0;
-      font-size: 13px;
-      color: var(--text);
-      line-height: 1.9;
-    }
-
-    .progress-line .label {
-      font-weight: 700;
-      margin-right: 4px;
-    }
-
-    .progress-line .sep {
-      color: var(--line-strong);
-      margin: 0 10px;
-    }
-
-    .progress-line .num-list {
-      color: var(--text);
-    }
-
-    .progressOuter {
-      height: 4px;
-      overflow: hidden;
-      background: var(--line);
-      margin: 6px 0 10px;
-      border-radius: 2px;
-    }
-
-    .progressInner {
-      height: 100%;
-      width: 0%;
-      background: var(--accent);
-      transition: width .2s ease;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 0;
-      margin: 14px 0 0;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .tab {
-      padding: 8px 16px;
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid transparent;
-      color: var(--muted);
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 13px;
-      margin-bottom: -1px;
-    }
-
-    .tab:hover { color: var(--text); }
-
-    .tab.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-    }
-
-    .tools {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin: 10px 0;
-    }
-
-    .tableWrap {
-      max-height: 680px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      background: var(--panel);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 1180px;
-      font-size: 13px;
-    }
-
-    th, td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      white-space: nowrap;
-      vertical-align: middle;
-    }
-
-    th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      background: #fafaf7;
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 700;
-      border-bottom: 1px solid var(--line-strong);
-    }
-
-    td:first-child, th:first-child {
-      color: var(--muted);
-      font-weight: 600;
-      width: 44px;
-      padding-right: 6px;
-    }
-
-    td.wallet {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      max-width: 210px;
-    }
-
-    td.wallet .walletInner {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      max-width: 100%;
-    }
-
-    td.wallet a.walletLink {
-      display: inline-block;
-      max-width: 118px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: var(--accent);
-      text-decoration: underline;
-      font-size: 13px;
-    }
-
-    td.wallet a.walletLink:hover { color: var(--accent-hover); }
-
-    td.wallet .copyBtn,
-    .best-panel .copyBtn {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--line-strong);
-      border-radius: 3px;
-      padding: 1px 6px;
-      font-size: 11px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    td.wallet .copyBtn:hover,
-    .best-panel .copyBtn:hover {
-      color: var(--accent);
-      border-color: var(--accent);
-    }
-
-    th.sortable {
-      cursor: pointer;
-      user-select: none;
-    }
-
-    th.sortable:hover { color: var(--accent); }
-
-    th.sortable .arrow {
-      display: inline-block;
-      margin-left: 4px;
-      color: var(--muted);
-      font-size: 10px;
-    }
-
-    th.sortable.activeSort .arrow { color: var(--accent); }
-
+    .progress-line { margin: 10px 0; font-size: 13px; color: var(--text); line-height: 1.9; }
+    .progress-line .label { font-weight: 700; margin-right: 4px; }
+    .progress-line .sep { color: var(--line-strong); margin: 0 10px; }
+    .progressOuter { height: 4px; overflow: hidden; background: var(--line); margin: 6px 0 10px; border-radius: 2px; }
+    .progressInner { height: 100%; width: 0%; background: var(--accent); transition: width .2s ease; }
+    .tabs { display: flex; gap: 0; margin: 14px 0 0; border-bottom: 1px solid var(--line); }
+    .tab { padding: 8px 16px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: -1px; }
+    .tab:hover { color: var(--text); background: transparent; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tools { margin: 10px 0; gap: 8px; }
+    .tableWrap { max-height: 700px; overflow: auto; border: 1px solid var(--line); background: var(--panel); }
+    table { width: 100%; border-collapse: collapse; min-width: 1480px; font-size: 13px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; vertical-align: middle; }
+    th { position: sticky; top: 0; z-index: 1; background: #fafaf7; color: var(--text); font-size: 12px; font-weight: 700; border-bottom: 1px solid var(--line-strong); }
+    td:first-child, th:first-child { color: var(--muted); font-weight: 600; width: 44px; padding-right: 6px; }
     tbody tr:hover { background: #fafaf5; }
-
-    .tableBar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 10px 0 8px;
-      flex-wrap: wrap;
-    }
-
-    .tableBar input[type="search"] {
-      flex: 1;
-      min-width: 220px;
-      padding: 6px 10px;
-      font-size: 13px;
-    }
-
-    .tableBar .rowCount {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--accent); }
+    th.sortable .arrow { display: inline-block; margin-left: 4px; color: var(--muted); font-size: 10px; }
+    th.sortable.activeSort .arrow { color: var(--accent); }
+    .tableBar { margin: 10px 0 8px; }
+    .tableBar input[type="search"] { flex: 1; min-width: 220px; padding: 6px 10px; font-size: 13px; }
+    .tableBar .rowCount { color: var(--muted); font-size: 12px; }
     .ok { color: var(--ok); font-weight: 600; }
     .badText { color: var(--bad); font-weight: 600; }
     .warnText { color: var(--warn); font-weight: 600; }
     .muted { color: var(--muted); }
-
-    .log {
-      margin-top: 10px;
-      max-height: 120px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      padding: 8px 10px;
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
-      border-radius: 3px;
-    }
-
-    .note {
-      margin: 10px 0;
-      padding: 10px 12px;
-      border-left: 3px solid var(--warn);
-      background: #fdf6e3;
-      color: #5c4600;
-      font-size: 12px;
-    }
-
-    details.advanced {
-      margin-top: 10px;
-      padding: 8px 10px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 3px;
-    }
-
-    details.advanced > summary {
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--text);
-      user-select: none;
-    }
-
+    .hot { color: var(--ok); font-weight: 700; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .log { margin-top: 10px; max-height: 140px; overflow: auto; border: 1px solid var(--line); background: var(--panel); padding: 8px 10px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; white-space: pre-wrap; border-radius: 3px; }
+    .note { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--warn); background: #fdf6e3; color: #5c4600; font-size: 12px; }
+    details.advanced { margin-top: 10px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
+    details.advanced > summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--text); user-select: none; }
     details.advanced[open] > summary { margin-bottom: 10px; }
-
-    details.advanced .row-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-    }
-
-    details.advanced .row-grid input { width: 100%; }
-
-    .hot {
-      color: var(--ok);
-      font-weight: 700;
-    }
-
-    .muted-suffix {
-      color: var(--muted);
-      font-size: 12px;
-      margin-left: 2px;
-    }
-
-    .best-panel {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin: 10px 0 4px;
-      padding: 10px 14px;
-      background: linear-gradient(90deg, rgba(20,122,61,.10), rgba(20,122,61,0));
-      border: 1px solid rgba(20,122,61,.28);
-      border-left: 3px solid var(--ok);
-      border-radius: 4px;
-      font-size: 13px;
-    }
-
-    .best-panel .best-tag {
-      background: var(--ok);
-      color: #fff;
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .3px;
-    }
-
-    .best-panel .best-addr {
-      display: inline-block;
-      max-width: 130px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      vertical-align: middle;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      background: rgba(255,255,255,.6);
-      padding: 2px 8px;
-      border-radius: 3px;
-      border: 1px solid var(--line);
-      font-size: 12px;
-    }
-
-    .best-panel .best-stat { color: var(--text); }
-    .best-panel .best-stat b { font-variant-numeric: tabular-nums; }
-
-    td.cpp {
-      font-variant-numeric: tabular-nums;
-      min-width: 170px;
-    }
-
-    td.cpp .cppInner {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-    }
-
-    td.cpp .cppVal {
-      min-width: 76px;
-      text-align: right;
-      font-weight: 600;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-    }
-
-    td.cpp .cppBar {
-      flex: 1;
-      height: 6px;
-      background: var(--line);
-      border-radius: 3px;
-      overflow: hidden;
-      max-width: 80px;
-    }
-
-    td.cpp .cppFill {
-      height: 100%;
-      background: linear-gradient(90deg, #4ca96b, #147a3d);
-      border-radius: 3px;
-      transition: width .25s ease;
-    }
-
-    td.cpp.free .cppVal { color: #1d63ed; }
-    td.cpp.free .cppFill { background: linear-gradient(90deg, #4d8cff, #1d63ed); }
-
-    td.cpp.inf .cppVal { color: var(--bad); font-weight: 700; }
-    td.cpp.inf .cppFill { background: var(--bad); }
-
-    td.cpp.none .cppVal { color: var(--muted); font-weight: 500; }
-    td.cpp.none .cppBar { visibility: hidden; }
-
+    details.advanced .row-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    details.advanced .row-grid input, details.advanced .row-grid textarea, details.advanced .row-grid select { width: 100%; }
+    .best-panel { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 10px 0 4px; padding: 10px 14px; background: linear-gradient(90deg, rgba(20,122,61,.10), rgba(20,122,61,0)); border: 1px solid rgba(20,122,61,.28); border-left: 3px solid var(--ok); border-radius: 4px; font-size: 13px; }
+    .best-panel .best-tag { background: var(--ok); color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: .3px; }
+    .best-panel .best-addr { display: inline-block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; background: rgba(255,255,255,.6); padding: 2px 8px; border-radius: 3px; border: 1px solid var(--line); font-size: 12px; }
+    .best-panel .copyBtn, td.wallet .copyBtn { background: transparent; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 3px; padding: 1px 6px; font-size: 11px; cursor: pointer; font-weight: 600; }
+    .best-panel .copyBtn:hover, td.wallet .copyBtn:hover { color: var(--accent); border-color: var(--accent); }
+    td.wallet { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; max-width: 220px; }
+    td.wallet .walletInner { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+    td.wallet a.walletLink { display: inline-block; max-width: 126px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); text-decoration: underline; font-size: 13px; }
+    td.wallet a.walletLink:hover { color: var(--accent-hover); }
     tr.best-row { background: linear-gradient(90deg, rgba(20,122,61,.09), rgba(20,122,61,0) 65%); }
     tr.best-row:hover { background: linear-gradient(90deg, rgba(20,122,61,.14), rgba(20,122,61,0) 65%); }
-
-    tr.spacerRow td {
-      padding: 0;
-      border: none;
-      background: transparent;
-    }
-
-    .actionBtn {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--line-strong);
-      border-radius: 3px;
-      padding: 1px 8px;
-      font-size: 11px;
-      cursor: pointer;
-      font-weight: 600;
-      font-family: inherit;
-    }
-
-    .actionBtn:hover { color: var(--accent); border-color: var(--accent); }
-    .actionBtn:disabled { opacity: .5; cursor: not-allowed; }
-
-    .tagInput {
-      width: 110px;
-      padding: 2px 6px;
-      font-size: 12px;
-      border: 1px solid transparent;
-      border-radius: 3px;
-      background: transparent;
-      font-family: inherit;
-      color: var(--text);
-    }
-
-    .tagInput:hover { border-color: var(--line-strong); }
-    .tagInput:focus {
-      border-color: var(--accent);
-      background: var(--panel);
-      box-shadow: 0 0 0 2px rgba(29, 99, 237, .12);
-    }
-
-    .wallets-dropzone {
-      position: relative;
-    }
-    .wallets-dropzone.dragover textarea {
-      border-color: var(--accent);
-      background: rgba(29, 99, 237, .04);
-    }
-
-    .wallet-list-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 8px;
-      font-size: 12px;
-    }
-
-    .wallet-list-bar select {
-      padding: 4px 8px;
-      font-size: 12px;
-      min-width: 160px;
-    }
-
-    .wallet-list-bar button {
-      padding: 4px 10px;
-      font-size: 12px;
-    }
-
-    .filter-bar {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin: 10px 0 8px;
-      padding: 8px 12px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 4px;
-    }
-
-    .filter-bar .filter-label {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: .3px;
-    }
-
-    .filter-bar input[type="number"] {
-      width: 110px;
-      padding: 5px 8px;
-    }
-
-    .filter-bar label { font-size: 13px; }
-
-    .filter-bar button {
-      padding: 5px 12px;
-      font-size: 12px;
-    }
-
-    .filter-bar .filter-hint {
-      color: var(--muted);
-      font-size: 12px;
-      margin-left: auto;
-    }
-
-    .filter-bar .filter-hint.active {
-      color: var(--accent);
-      font-weight: 600;
-    }
-
-    tr.best-row td.wallet a.walletLink::after {
-      content: "最佳";
-      display: inline-block;
-      background: var(--ok);
-      color: #fff;
-      padding: 1px 6px;
-      border-radius: 3px;
-      font-size: 10px;
-      font-weight: 700;
-      margin-left: 8px;
-      vertical-align: middle;
-      text-decoration: none;
-      letter-spacing: .3px;
-    }
-
-    tr.visited-row {
-      background: linear-gradient(90deg, rgba(29, 99, 237, .08), rgba(29, 99, 237, 0) 65%);
-    }
-
-    tr.visited-row:hover {
-      background: linear-gradient(90deg, rgba(29, 99, 237, .13), rgba(29, 99, 237, 0) 65%);
-    }
-
-    tr.best-row.visited-row {
-      background: linear-gradient(90deg, rgba(20,122,61,.13), rgba(29,99,237,.08) 70%);
-    }
-
-    tr.best-row.visited-row:hover {
-      background: linear-gradient(90deg, rgba(20,122,61,.18), rgba(29,99,237,.12) 70%);
-    }
-
-    td.wallet a.walletLink.viewed {
-      color: #7a5d00;
-    }
-
-    .walletBadge {
-      display: inline-block;
-      padding: 1px 6px;
-      border-radius: 3px;
-      font-size: 10px;
-      font-weight: 700;
-      line-height: 1.4;
-      vertical-align: middle;
-      white-space: nowrap;
-    }
-
-    .walletBadge.viewed {
-      color: #6b5200;
-      background: #f4e7b4;
-      border: 1px solid #dfca79;
-    }
-
-
-    .filter-bar input.compact { width: 96px; }
-    .filter-bar select,
-    .tableBar select {
-      padding: 5px 8px;
-      font-size: 12px;
-      border: 1px solid var(--line-strong);
-      border-radius: 4px;
-      background: var(--panel);
-      color: var(--text);
-    }
-
-    .quickBtnHot {
-      color: var(--ok) !important;
-      border-color: rgba(20, 122, 61, .45) !important;
-      background: rgba(20, 122, 61, .08) !important;
-    }
-
+    td.money { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    td.cpp { font-variant-numeric: tabular-nums; min-width: 150px; }
+    td.cpp .cppInner { display: flex; align-items: center; gap: 8px; width: 100%; }
+    td.cpp .cppVal { min-width: 76px; text-align: right; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    td.cpp .cppBar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; max-width: 80px; }
+    td.cpp .cppFill { height: 100%; background: linear-gradient(90deg, #4ca96b, #147a3d); border-radius: 3px; transition: width .25s ease; }
+    td.cpp.free .cppVal { color: #1d63ed; }
+    td.cpp.inf .cppVal { color: var(--bad); font-weight: 700; }
+    td.cpp.none .cppVal { color: var(--muted); font-weight: 500; }
+    .filter-bar { margin: 10px 0 8px; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; gap: 14px; }
+    .filter-bar .filter-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .3px; }
+    .filter-bar input[type="number"] { width: 110px; padding: 5px 8px; }
+    .filter-bar button { padding: 5px 12px; font-size: 12px; }
+    .filter-bar select, .tableBar select { padding: 5px 8px; font-size: 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--panel); color: var(--text); }
+    .quickBtnHot { color: var(--ok) !important; border-color: rgba(20, 122, 61, .45) !important; background: rgba(20, 122, 61, .08) !important; }
+    @media (max-width: 900px) { .wrap { padding: 16px 12px 32px; } .progress-line .sep { margin: 0 5px; } }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>OPINX Predict 积分批量查询（含周明细与汇总统计）</h1>
-    <div class="subtitle">将多个地址按行粘贴，每行一个地址。点击钱包地址会打开 Debank BSC 历史记录，并自动标记为“已看”。</div>
+    <h1>OPINX Predict 积分批量查询（持仓金额 + USDT 可用余额）</h1>
+    <div class="subtitle">将多个地址按行粘贴。持仓金额走 Vercel 同域代理 /api/predict（API Key 从 Vercel 环境变量读取）；可用余额走 BSC USDT 合约 balanceOf。点击钱包地址打开 Debank BSC 历史记录。</div>
 
-    <div id="walletsDrop" class="wallets-dropzone">
-      <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址。也可以把 .csv / .txt 文件拖到这里。"></textarea>
-    </div>
-
-    <div class="wallet-list-bar">
-      <label for="walletListSelect" class="filter-label" style="font-weight:700">钱包清单：</label>
-      <select id="walletListSelect">
-        <option value="">— 选择 —</option>
-      </select>
-      <button id="walletListLoadBtn" class="secondary" type="button" disabled>载入</button>
-      <button id="walletListSaveBtn" class="secondary" type="button">保存当前</button>
-      <button id="walletListDeleteBtn" class="bad" type="button" disabled>删除</button>
-      <span class="muted" id="walletListHint"></span>
-    </div>
+    <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址。"></textarea>
 
     <div class="controls">
       <div class="control-group">
@@ -729,17 +176,23 @@
     <div class="progress-line">
       <span class="label">进度：</span><span id="statProgress">0 / 0</span>
       <span class="sep">|</span>
-      <span class="label">成功</span><span id="statSuccess">0</span>
+      <span class="label">成功 / 失败</span><span id="statSuccess">0 / 0</span>
       <span class="sep">|</span>
       <span class="label">汇总积分 Σ:</span><span id="statPoints">0</span>
       <span class="sep">|</span>
       <span class="label">汇总手续费</span><span id="statCost">0 U</span>
       <span class="sep">|</span>
-      <span class="label">整体积分成本</span><span id="statOverallCpp" class="hot">—</span><span class="muted-suffix"> /积分</span>
+      <span class="label">整体积分成本</span><span id="statOverallCpp" class="hot">—</span><span class="muted"> /积分</span>
+      <span class="sep">|</span>
+      <span class="label">汇总持仓金额</span><span id="statHolding">—</span>
+      <span class="sep">|</span>
+      <span class="label">汇总可用余额</span><span id="statBalance">—</span>
+      <span class="sep">|</span>
+      <span class="label">汇总净资产</span><span id="statNetAsset">—</span>
       <span class="sep">|</span>
       <span class="label">汇总交易量</span><span id="statVolume">0</span>
       <span class="sep">|</span>
-      <span class="label">汇总份额</span><span id="statShares">0</span>
+      <span class="label">汇总份额</span><span id="statShares">—</span>
       <span class="sep">|</span>
       <span class="label">交易次数</span><span id="statTrades">0</span>
       <span class="sep">|</span>
@@ -747,25 +200,26 @@
     </div>
 
     <div id="bestPanel" class="best-panel" hidden>
-      <span id="bestModeTag" class="best-tag">积分成本最低</span>
+      <span class="best-tag">积分成本最低</span>
       <code id="bestAddr" class="best-addr">-</code>
       <button id="bestCopyBtn" class="copyBtn" type="button">复制</button>
       <span class="best-stat"><span class="muted">积分</span> <b id="bestPoints">0</b></span>
       <span class="best-stat"><span class="muted">手续费</span> <b id="bestCost">0</b> U</span>
       <span class="best-stat"><span class="muted">积分成本</span> <b id="bestCpp" class="hot">—</b> <span class="muted">/积分</span></span>
-      <span class="best-stat"><span class="muted">份额</span> <b id="bestShares">—</b></span>
-      <span class="best-stat"><span class="muted">份额/分</span> <b id="bestSharesPerPoint">—</b></span>
+      <span class="best-stat"><span class="muted">持仓</span> <b id="bestHolding">—</b> U</span>
+      <span class="best-stat"><span class="muted">余额</span> <b id="bestBalance">—</b> U</span>
+      <span class="best-stat"><span class="muted">净资产</span> <b id="bestNetAsset">—</b> U</span>
     </div>
 
     <div class="progressOuter"><div id="progressBar" class="progressInner"></div></div>
 
-    <details class="advanced">
-      <summary>高级配置（API、代理、并发、倍率）</summary>
+    <details class="advanced" open>
+      <summary>高级配置（API、代理、并发、倍率、持仓与余额）</summary>
       <div class="row-grid">
         <div>
           <label for="concurrency">并发数量</label>
-          <input id="concurrency" type="number" min="1" max="50" value="5" />
-          <div class="help">建议 3-10。</div>
+          <input id="concurrency" type="number" min="1" max="30" value="5" />
+          <div class="help">建议 3-8。持仓 API + RPC 会增加请求量。</div>
         </div>
         <div>
           <label for="retries">失败重试</label>
@@ -774,7 +228,6 @@
         <div>
           <label for="maxQps">每秒最多请求</label>
           <input id="maxQps" type="number" min="0" step="0.5" value="0" placeholder="0=不限" />
-          <div class="help">0 表示不限流。</div>
         </div>
         <div>
           <label for="timeoutMs">超时毫秒</label>
@@ -788,7 +241,7 @@
           <label for="feeMultiplier">手续费折扣</label>
           <input id="feeMultiplier" type="number" min="0" step="0.01" value="0.9" />
         </div>
-        <div>
+        <div style="grid-column: 1 / -1;">
           <label for="apiTemplate">积分 API 模板</label>
           <input id="apiTemplate" type="text" value="https://tool.opinx.app/api/predict/points/{wallet}" />
         </div>
@@ -799,7 +252,41 @@
         <div style="grid-column: 1 / -1;">
           <label for="tradesApiTemplate">份额 API 模板</label>
           <input id="tradesApiTemplate" type="text" value="https://tool.opinx.app/api/predict/trades/{wallet}?start_time={start_time}&end_time={end_time}" />
-          <div class="help">会自动把积分接口返回的 week_start / week_end 填入 start_time / end_time，避免周时间错位。</div>
+        </div>
+
+        <div>
+          <label class="checkbox" style="margin-top:24px;"><input id="queryHoldings" type="checkbox" checked />查询持仓金额</label>
+          <div class="help">走 Predict Position API，累加 valueUsd。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="positionApiTemplate">持仓 API 模板</label>
+          <input id="positionApiTemplate" type="text" value="/api/predict?network=mainnet&amp;path=/v1/positions/{wallet}" />
+          <div class="help">默认走 Vercel 同域代理 /api/predict；代理在服务端读取 PREDICT_API_KEY，不会暴露到前端。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="positionValuePaths">持仓金额字段路径</label>
+          <input id="positionValuePaths" type="text" value="data[].valueUsd,data[].currentValueUsd,data[].value_usd,data[].current_value_usd,result.list[].currentValueInQuoteToken,result.list[].valueUsd,positions[].valueUsd,list[].valueUsd" />
+          <div class="help">多个路径用英文逗号分隔。默认兼容 Predict valueUsd 与 Opinion currentValueInQuoteToken。</div>
+        </div>
+
+        <div>
+          <label class="checkbox" style="margin-top:24px;"><input id="queryBalance" type="checkbox" checked />查询 USDT 可用余额</label>
+          <div class="help">链上读取 USDT.balanceOf(wallet)。</div>
+        </div>
+        <div>
+          <label for="usdtAddress">BSC USDT 合约</label>
+          <input id="usdtAddress" type="text" value="0x55d398326f99059fF775485246999027B3197955" />
+        </div>
+        <div>
+          <label for="usdtDecimals">USDT decimals</label>
+          <input id="usdtDecimals" type="number" min="0" step="1" value="18" />
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="rpcUrls">BSC RPC URL（每行一个，失败会自动换下一个）</label>
+          <textarea id="rpcUrls" style="min-height:70px">https://bsc-dataseed.bnbchain.org/
+https://bsc-rpc.publicnode.com
+https://binance.llamarpc.com
+https://bsc.drpc.org</textarea>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="proxyPrefix">代理前缀（可选）</label>
@@ -807,96 +294,43 @@
         </div>
       </div>
       <div class="note">
-        如果请求失败提示 <b>Failed to fetch</b> 或 <b>CORS</b>，需要你自己的后端/Nginx/Cloudflare Worker 做转发代理。份额查询会额外增加每个钱包每周 1 次 trades 请求。
+        Predict 持仓接口默认走同域 <b>/api/predict</b> 代理，服务端会从 Vercel 环境变量 <b>PREDICT_API_KEY</b> 读取 Key 并转发到官方 API。USDT 可用余额不走 Predict API，而是通过 BSC RPC 调用 ERC-20 <b>balanceOf(address)</b>。
       </div>
     </details>
 
     <div class="tabs">
-      <div class="tab active" data-tab="summary">钱包汇总</div>
-      <div class="tab" data-tab="detail">周明细</div>
+      <button class="tab active" data-tab="summary" type="button">钱包汇总</button>
+      <button class="tab" data-tab="detail" type="button">周明细</button>
     </div>
 
     <div class="filter-bar">
       <span class="filter-label">筛选：</span>
-      <div class="control-group">
-        <label for="minPoints">积分 ≥</label>
-        <input id="minPoints" class="compact" type="number" min="0" step="any" placeholder="0" />
-      </div>
-      <div class="control-group">
-        <label for="minVolume">总交易量 ≥</label>
-        <input id="minVolume" class="compact" type="number" min="0" step="any" placeholder="0" />
-      </div>
-      <div class="control-group">
-        <label for="minTrades">交易次数 ≥</label>
-        <input id="minTrades" class="compact" type="number" min="0" step="any" placeholder="0" />
-      </div>
-      <div class="control-group">
-        <label for="maxCpp">积分成本 ≤</label>
-        <input id="maxCpp" class="compact" type="number" min="0" step="any" placeholder="0.00005" />
-      </div>
-      <div class="control-group">
-        <label for="maxTotalVolumePerPoint">总量/分 ≤</label>
-        <input id="maxTotalVolumePerPoint" class="compact" type="number" min="0" step="any" placeholder="1" />
-      </div>
-      <div class="control-group">
-        <label for="maxPaidVolumePerPoint">付费量/分 ≤</label>
-        <input id="maxPaidVolumePerPoint" class="compact" type="number" min="0" step="any" placeholder="1" />
-      </div>
-      <div class="control-group">
-        <label for="maxSharesPerPoint">份额/分 ≤</label>
-        <input id="maxSharesPerPoint" class="compact" type="number" min="0" step="any" placeholder="1" />
-      </div>
-      <div class="control-group">
-        <label for="minCost">手续费 ≥</label>
-        <input id="minCost" class="compact" type="number" min="0" step="any" placeholder="0" />
-      </div>
-      <div class="control-group">
-        <label for="topNSelect">Top</label>
-        <select id="topNSelect">
-          <option value="0">全部</option>
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-      </div>
-      <label class="checkbox"><input id="onlyZeroReferral" type="checkbox" />推荐积分=0</label>
-      <label class="checkbox"><input id="excludeLowSample" type="checkbox" />排除低样本</label>
+      <div class="control-group"><label for="minPoints">积分 ≥</label><input id="minPoints" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="minBalance">余额 ≥</label><input id="minBalance" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="minHolding">持仓 ≥</label><input id="minHolding" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="minNetAsset">净资产 ≥</label><input id="minNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="maxCpp">积分成本 ≤</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
       <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
-      <button id="resetFiltersBtn" class="secondary">重置筛选</button>
-      <span class="filter-hint" id="filterHint"></span>
+      <button id="resetFiltersBtn" class="secondary" type="button">重置筛选</button>
+      <span class="muted" id="filterHint"></span>
     </div>
 
     <div class="tableBar">
-      <input id="filterInput" type="search" placeholder="按钱包、标签、状态、错误信息、周数过滤..." />
+      <input id="filterInput" type="search" placeholder="按钱包、状态、错误信息、周数过滤..." />
       <div class="rowCount" id="rowCount">0 行</div>
       <select id="sortPresetSelect" title="推荐排序">
         <option value="cost_per_point:asc">积分成本最低</option>
         <option value="points:desc">积分最多</option>
-        <option value="total_volume_per_point:asc">总量/分最低</option>
-        <option value="paid_volume_per_point:asc">付费量/分最低</option>
-        <option value="shares_per_point:asc">份额/分最低</option>
+        <option value="net_asset_usdt:desc">净资产最高</option>
+        <option value="available_balance_usdt:desc">可用余额最高</option>
+        <option value="holding_amount_usdt:desc">持仓金额最高</option>
         <option value="total_volume_usdt:desc">交易量最高</option>
-        <option value="total_volume_shares:desc">份额最高</option>
       </select>
-      <select id="highlightModeSelect" title="最佳高亮规则">
-        <option value="cost_per_point">高亮：积分成本最低</option>
-        <option value="points">高亮：积分最多</option>
-        <option value="total_volume_per_point">高亮：总量/分最低</option>
-        <option value="paid_volume_per_point">高亮：付费量/分最低</option>
-        <option value="shares_per_point">高亮：份额/分最低</option>
-        <option value="total_volume_shares">高亮：份额最高</option>
-      </select>
-      <button id="sampleBtn" class="secondary">填入示例</button>
-      <button id="copySummaryBtn" class="secondary" disabled>复制汇总表</button>
-      <button id="copyFilteredWalletsBtn" class="secondary" type="button" disabled>复制当前钱包</button>
-      <button id="exportSummaryBtn" class="warn" disabled>导出汇总 CSV</button>
-      <button id="exportDetailBtn" class="warn" disabled>导出明细 CSV</button>
-      <button id="saveSnapshotBtn" class="secondary" type="button" disabled>保存快照</button>
-      <select id="snapshotSelect" style="padding:6px 10px;font-size:13px;"><option value="">— 无对比 —</option></select>
-      <button id="exportDeltaBtn" class="warn" type="button" disabled>导出变化 CSV</button>
-      <button id="clearVisitedBtn" class="secondary" type="button">清除已看</button>
-      <button id="clearLocalBtn" class="bad" type="button" title="清空钱包清单、标签、快照、已看记录">清除本地数据</button>
+      <button id="sampleBtn" class="secondary" type="button">填入示例</button>
+      <button id="copySummaryBtn" class="secondary" disabled type="button">复制汇总表</button>
+      <button id="copyFilteredWalletsBtn" class="secondary" disabled type="button">复制当前钱包</button>
+      <button id="exportSummaryBtn" class="warn" disabled type="button">导出汇总 CSV</button>
+      <button id="exportDetailBtn" class="warn" disabled type="button">导出明细 CSV</button>
     </div>
 
     <div id="summaryBox" class="tableWrap"></div>
@@ -917,290 +351,59 @@
       failedWallets: 0,
       detailRows: [],
       summaryRows: [],
-      startedAt: null,
       activeTab: "summary",
       filterText: "",
       onlyCalculated: false,
       minPoints: 0,
-      minVolume: 0,
-      minTrades: 0,
+      minBalance: 0,
+      minHolding: 0,
+      minNetAsset: 0,
       maxCpp: 0,
-      maxTotalVolumePerPoint: 0,
-      maxPaidVolumePerPoint: 0,
-      maxSharesPerPoint: 0,
-      minCost: 0,
-      onlyZeroReferral: false,
-      excludeLowSample: false,
-      topN: 0,
-      highlightMode: "cost_per_point",
       sort: {
         summary: { key: "cost_per_point", dir: "asc" },
         detail: { key: "cost_per_point", dir: "asc" },
       },
       bestWallet: null,
-      walletTags: {},
-      walletLists: {},
-      snapshots: [],
-      activeSnapshotId: "",
-      visitedWallets: new Set(),
     };
-
-    const STORAGE_KEYS = {
-      tags: "opinx:walletTags",
-      lists: "opinx:walletLists",
-      snapshots: "opinx:snapshots",
-      visited: "opinx:visitedWallets",
-    };
-    const MAX_SNAPSHOTS = 20;
-
-    function safeParse(json, fallback) {
-      if (!json) return fallback;
-      try { return JSON.parse(json); } catch { return fallback; }
-    }
-
-    function loadLocal(key, fallback) {
-      try { return safeParse(localStorage.getItem(key), fallback); }
-      catch { return fallback; }
-    }
-
-    function saveLocal(key, value) {
-      try { localStorage.setItem(key, JSON.stringify(value)); }
-      catch (err) { console.warn("localStorage 写入失败", err); }
-    }
 
     const numericKeys = new Set([
       "total_points", "allocation_round_points",
       "week", "trade_count",
       "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt",
       "paid_fee_usdt", "cost_usdt", "points", "referral_points",
-      "cost_per_point",
+      "cost_per_point", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt",
       "total_volume_shares", "shares_per_point",
       "total_volume_per_point", "paid_volume_per_point", "free_volume_per_point",
-      "delta_points", "delta_cost_usdt", "delta_cost_per_point",
-      "week_start_ts", "week_end_ts",
+      "week_start_ts", "week_end_ts"
     ]);
 
-    const CPP_KEYS = new Set(["cost_per_point", "delta_cost_per_point"]);
+    const CPP_KEYS = new Set(["cost_per_point"]);
     const VPP_KEYS = new Set(["total_volume_per_point", "paid_volume_per_point", "free_volume_per_point", "shares_per_point"]);
-    const TWO_DECIMAL_DISPLAY_KEYS = new Set([
-      "paid_volume_usdt",
-      "free_volume_usdt",
-      "total_volume_usdt",
-      "total_volume_shares",
-      "cost_usdt",
-      "paid_fee_usdt",
-      "points",
-      "total_points"
+    const MONEY_KEYS = new Set([
+      "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt", "total_volume_shares",
+      "cost_usdt", "paid_fee_usdt", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt"
     ]);
-
-    // Returns:
-    //   ""         -> no data (cost=0 and points=0) — sorted last as empty
-    //   "0"        -> free (cost=0 and points>0) — best, displays "免费"
-    //   "Infinity" -> paid but got 0 points — worst
-    //   "<num>"    -> normal USDT cost per point (smaller = cheaper = better)
-    function computeCostPerPoint(pointsStr, costStr) {
-      const p = Number(pointsStr || "0");
-      const c = Number(costStr || "0");
-      if (!isFinite(p) || !isFinite(c) || p < 0 || c < 0) return "";
-      if (p === 0 && c === 0) return "";
-      if (p === 0) return "Infinity";
-      if (c === 0) return "0";
-      return String(c / p);
-    }
-
-    function computeVolumePerPoint(pointsStr, volumeStr) {
-      const p = Number(pointsStr || "0");
-      const v = Number(volumeStr || "0");
-      if (!isFinite(p) || !isFinite(v) || p < 0 || v < 0) return "";
-      if (p === 0 && v === 0) return "";
-      if (p === 0) return "Infinity";
-      return String(v / p);
-    }
-
-    function computeOptionalVolumePerPoint(pointsStr, volumeStr) {
-      if (volumeStr === "" || volumeStr === undefined || volumeStr === null) return "";
-      return computeVolumePerPoint(pointsStr, volumeStr);
-    }
-
-    function formatVolumePerPoint(s) {
-      if (s === "" || s === undefined || s === null) return "—";
-      if (s === "Infinity") return "无积分";
-      const n = Number(s);
-      if (!isFinite(n) || n < 0) return "—";
-      return n.toFixed(2);
-    }
-
-    function vppSortValue(v) {
-      if (v === "" || v === undefined || v === null || v === "Infinity") return Number.POSITIVE_INFINITY;
-      const n = Number(v);
-      return isFinite(n) && n >= 0 ? n : Number.POSITIVE_INFINITY;
-    }
-
-    function formatCostPerPoint(s) {
-      if (s === "" || s === undefined || s === null) return "—";
-      if (s === "Infinity") return "无积分";
-      const n = Number(s);
-      if (!isFinite(n) || n < 0) return "—";
-      if (n === 0) return "免费";
-      if (n >= 1) return "$" + n.toFixed(2);
-      if (n >= 0.01) return "$" + n.toFixed(4);
-      if (n >= 0.0001) return "$" + n.toFixed(5);
-      return "$" + n.toExponential(2);
-    }
-
-    // For sort/comparison: cheaper (smaller) is better.
-    function cppSortValue(v) {
-      if (v === "" || v === undefined || v === null) return Number.POSITIVE_INFINITY;
-      if (v === "Infinity") return Number.POSITIVE_INFINITY;
-      const n = Number(v);
-      return isFinite(n) && n >= 0 ? n : Number.POSITIVE_INFINITY;
-    }
-
-    function shortWallet(addr) {
-      if (!addr || addr.length < 12) return addr || "";
-      return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-    }
-
-    function normalizeWalletKey(wallet) {
-      return String(wallet || "").trim().toLowerCase();
-    }
-
-    function debankHistoryUrl(wallet) {
-      const w = normalizeWalletKey(wallet);
-      return `https://debank.com/profile/${encodeURIComponent(w)}/history?chain=bsc`;
-    }
-
-    function loadVisitedWallets() {
-      const list = loadLocal(STORAGE_KEYS.visited, []);
-      if (!Array.isArray(list)) return new Set();
-      return new Set(list.map(normalizeWalletKey).filter(Boolean));
-    }
-
-    function saveVisitedWallets() {
-      saveLocal(STORAGE_KEYS.visited, [...state.visitedWallets]);
-    }
-
-    function markWalletVisited(wallet) {
-      const w = normalizeWalletKey(wallet);
-      if (!w) return;
-      if (!state.visitedWallets.has(w)) {
-        state.visitedWallets.add(w);
-        saveVisitedWallets();
-        scheduleRender();
-      }
-    }
-
-
-    function num(value, fallback = 0) {
-      const n = Number(value);
-      return Number.isFinite(n) ? n : fallback;
-    }
-
-    function isValidCpp(v) {
-      if (v === "" || v === undefined || v === null || v === "Infinity") return false;
-      const n = Number(v);
-      return Number.isFinite(n) && n >= 0;
-    }
-
-    function classifyGrade(row) {
-      if (row.status !== "ok") return "风险";
-      const cpp = row.cost_per_point;
-      const points = num(row.points);
-      const trades = num(row.trade_count);
-      const settled = String(row.calculated_all).toLowerCase() === "true";
-      if (cpp === "Infinity") return "风险";
-      if (!isValidCpp(cpp)) return "—";
-      const c = Number(cpp);
-      if ((c === 0 && points >= 1000) || (c <= 0.00005 && points >= 10000 && settled)) return "S";
-      if (c <= 0.0001 && points >= 5000) return "A";
-      if (c <= 0.0003 && points >= 1000 && trades >= 5) return "B";
-      return "C";
-    }
-
-    function getActiveSnapshotMap() {
-      const snap = state.snapshots.find(s => s.id === state.activeSnapshotId);
-      if (!snap) return null;
-      return new Map(snap.rows.map(r => [normalizeWalletKey(r.wallet), r]));
-    }
-
-    function computeBudgetPoints(cpp, budget) {
-      if (!budget || budget <= 0 || !isValidCpp(cpp)) return "";
-      const c = Number(cpp);
-      if (c === 0) return "Infinity";
-      return String(budget / c);
-    }
-
-    function computeTargetCost(cpp, targetPoints) {
-      if (!targetPoints || targetPoints <= 0 || !isValidCpp(cpp)) return "";
-      const c = Number(cpp);
-      if (c === 0) return "0";
-      return String(targetPoints * c);
-    }
-
-    function enrichSummaryRows(rows) {
-      const snapshotMap = getActiveSnapshotMap();
-
-      for (const row of rows) {
-        if (snapshotMap) {
-          const base = snapshotMap.get(normalizeWalletKey(row.wallet)) || {};
-          row.delta_points = decimalSub(row.points || "0", base.points || "0");
-          row.delta_cost_usdt = decimalSub(row.cost_usdt || "0", base.cost_usdt || "0");
-          row.delta_cost_per_point = computeCostPerPoint(row.delta_points, row.delta_cost_usdt);
-        } else {
-          row.delta_points = "";
-          row.delta_cost_usdt = "";
-          row.delta_cost_per_point = "";
-        }
-
-        row.total_volume_per_point = computeVolumePerPoint(row.points, row.total_volume_usdt);
-        row.paid_volume_per_point = computeVolumePerPoint(row.points, row.paid_volume_usdt);
-        row.free_volume_per_point = computeVolumePerPoint(row.points, row.free_volume_usdt);
-        row.shares_per_point = computeOptionalVolumePerPoint(row.points, row.total_volume_shares);
-      }
-
-      return rows;
-    }
-
-    function bestModeLabel(mode) {
-      const map = {
-        cost_per_point: "积分成本最低",
-        points: "积分最多",
-        total_volume_per_point: "总量/分最低",
-        paid_volume_per_point: "付费量/分最低",
-        shares_per_point: "份额/分最低",
-        total_volume_shares: "份额最高",
-      };
-      return map[mode] || "积分成本最低";
-    }
-
-    function passesLowSample(row) {
-      if (row.status !== "ok") return false;
-      const points = num(row.points);
-      const trades = num(row.trade_count);
-      const volume = num(row.total_volume_usdt);
-      return points >= 1000 && trades >= 10 && volume >= 100 && isValidCpp(row.cost_per_point);
-    }
+    const TWO_DECIMAL_KEYS = new Set(["points", "total_points"]);
 
     const detailColumns = [
       ["wallet", "钱包"],
-      ["tag", "标签"],
-      ["actions", "操作"],
       ["status", "状态"],
-      ["trade_count", "交易次数"],
       ["week", "周"],
       ["calculated", "已结算"],
       ["points", "周积分"],
       ["cost_usdt", "手续费"],
       ["cost_per_point", "积分成本 $/积分"],
+      ["holding_amount_usdt", "持仓金额"],
+      ["available_balance_usdt", "可用余额"],
+      ["net_asset_usdt", "净资产"],
+      ["trade_count", "交易次数"],
       ["paid_volume_usdt", "付费交易量"],
       ["free_volume_usdt", "免费交易量"],
       ["total_volume_usdt", "总交易量"],
       ["total_volume_shares", "份额"],
       ["total_volume_per_point", "总量/分"],
-      ["paid_volume_per_point", "付费量/分"],
-      ["free_volume_per_point", "免费量/分"],
       ["shares_per_point", "份额/分"],
-      ["total_points", "总积分"],
+      ["total_points", "当前总积分"],
       ["allocation_round_points", "本轮积分"],
       ["week_start_ts", "开始时间戳"],
       ["week_end_ts", "结束时间戳"],
@@ -1212,20 +415,19 @@
 
     const summaryColumns = [
       ["wallet", "钱包"],
-      ["tag", "标签"],
-      ["actions", "操作"],
       ["status", "状态"],
-      ["trade_count", "交易次数"],
       ["points", "统计周积分"],
       ["cost_usdt", "手续费"],
       ["cost_per_point", "积分成本 $/积分"],
+      ["holding_amount_usdt", "持仓金额"],
+      ["available_balance_usdt", "可用余额"],
+      ["net_asset_usdt", "净资产"],
+      ["trade_count", "交易次数"],
       ["paid_volume_usdt", "付费交易量"],
       ["free_volume_usdt", "免费交易量"],
       ["total_volume_usdt", "总交易量"],
       ["total_volume_shares", "份额"],
       ["total_volume_per_point", "总量/分"],
-      ["paid_volume_per_point", "付费量/分"],
-      ["free_volume_per_point", "免费量/分"],
       ["shares_per_point", "份额/分"],
       ["selected_weeks", "统计周数"],
       ["calculated_all", "全部已结算"],
@@ -1234,27 +436,22 @@
       ["error", "错误"]
     ];
 
-        function log(message) {
+    function log(message) {
       const el = $("log");
       const now = new Date().toLocaleTimeString();
       el.textContent += `\n[${now}] ${message}`;
       el.scrollTop = el.scrollHeight;
     }
 
-    function setLog(message) {
-      $("log").textContent = message;
-    }
+    function setLog(message) { $("log").textContent = message; }
 
     function extractWallets(text) {
-      const matches = text.match(/0x[a-fA-F0-9]{40}/g) || [];
+      const matches = String(text || "").match(/0x[a-fA-F0-9]{40}/g) || [];
       const seen = new Set();
       const wallets = [];
       for (const w of matches) {
         const lower = w.toLowerCase();
-        if (!seen.has(lower)) {
-          seen.add(lower);
-          wallets.push(lower);
-        }
+        if (!seen.has(lower)) { seen.add(lower); wallets.push(lower); }
       }
       return wallets;
     }
@@ -1262,19 +459,13 @@
     function parseWeeks(input) {
       const s = input.trim();
       if (!s) return null;
-
       const result = new Set();
-      const parts = s.split(",");
-
-      for (const raw of parts) {
+      for (const raw of s.split(",")) {
         const part = raw.trim();
         if (!part) continue;
-
         if (part.includes("-")) {
           const pair = part.split("-").map(x => Number(x.trim()));
-          if (pair.length !== 2 || !Number.isInteger(pair[0]) || !Number.isInteger(pair[1])) {
-            throw new Error(`周数格式错误：${part}`);
-          }
+          if (pair.length !== 2 || !Number.isInteger(pair[0]) || !Number.isInteger(pair[1])) throw new Error(`周数格式错误：${part}`);
           let [start, end] = pair;
           if (start > end) [start, end] = [end, start];
           for (let i = start; i <= end; i++) result.add(i);
@@ -1284,18 +475,14 @@
           result.add(n);
         }
       }
-
       return [...result].sort((a, b) => a - b);
     }
 
     function expandExponential(value) {
       const s = String(value).trim();
       if (!/[eE]/.test(s)) return s;
-
       const n = Number(s);
       if (!Number.isFinite(n)) return "0";
-
-      // 足够覆盖这个接口里常见的小数位，不用于金融结算，只用于展示/统计。
       return n.toFixed(30).replace(/0+$/, "").replace(/\.$/, "");
     }
 
@@ -1303,15 +490,9 @@
       if (value === null || value === undefined || value === "") return "0";
       let s = expandExponential(value).replace(/,/g, "").trim();
       if (!s || s === ".") return "0";
-
       let sign = "";
-      if (s[0] === "-") {
-        sign = "-";
-        s = s.slice(1);
-      } else if (s[0] === "+") {
-        s = s.slice(1);
-      }
-
+      if (s[0] === "-") { sign = "-"; s = s.slice(1); }
+      else if (s[0] === "+") { s = s.slice(1); }
       if (!/^\d*(\.\d*)?$/.test(s)) return "0";
       let [intPart, fracPart = ""] = s.split(".");
       intPart = intPart.replace(/^0+(?=\d)/, "") || "0";
@@ -1329,46 +510,35 @@
       return { n: digits, scale: fracPart.length };
     }
 
-    function pow10(n) {
-      return 10n ** BigInt(n);
-    }
+    function pow10(n) { return 10n ** BigInt(n); }
 
     function formatScaled(n, scale) {
       const negative = n < 0n;
       let s = (negative ? -n : n).toString();
-
       if (scale > 0) {
         if (s.length <= scale) s = "0".repeat(scale - s.length + 1) + s;
         const idx = s.length - scale;
         s = s.slice(0, idx) + "." + s.slice(idx);
       }
-
       s = s.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
       if (!s) s = "0";
       return negative && s !== "0" ? "-" + s : s;
     }
 
     function decimalAdd(a, b) {
-      const A = toScaled(a);
-      const B = toScaled(b);
+      const A = toScaled(a), B = toScaled(b);
       const scale = Math.max(A.scale, B.scale);
       const n = A.n * pow10(scale - A.scale) + B.n * pow10(scale - B.scale);
       return formatScaled(n, scale);
     }
 
-    function decimalSum(values) {
-      return values.reduce((acc, v) => decimalAdd(acc, v), "0");
+    function decimalSum(values) { return values.reduce((acc, v) => decimalAdd(acc, v), "0"); }
+    function decimalMul(value, multiplierText) {
+      const A = toScaled(value), M = toScaled(multiplierText);
+      return formatScaled(A.n * M.n, A.scale + M.scale);
     }
-
-    function negateDecimal(v) {
-      const s = normalizeDecimal(v);
-      if (s === "0") return "0";
-      return s.startsWith("-") ? s.slice(1) : "-" + s;
-    }
-
-    function decimalSub(a, b) {
-      return decimalAdd(a, negateDecimal(b));
-    }
+    function negateDecimal(v) { const s = normalizeDecimal(v); return s === "0" ? "0" : (s.startsWith("-") ? s.slice(1) : "-" + s); }
+    function decimalSub(a, b) { return decimalAdd(a, negateDecimal(b)); }
 
     function shortDecimal(value, maxDp = 6) {
       const s = normalizeDecimal(value);
@@ -1381,75 +551,80 @@
       return negative ? "-" + out : out;
     }
 
-    function formatTwoDecimal(value) {
-      if (value === "" || value === undefined || value === null) return "—";
-      const n = Number(String(value).replace(/,/g, ""));
-      if (!Number.isFinite(n)) return "—";
-      return n.toFixed(2);
+    function num(value, fallback = 0) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
+    function formatTwoDecimal(value) { const n = Number(String(value ?? "").replace(/,/g, "")); return Number.isFinite(n) ? n.toFixed(2) : "—"; }
+    function formatMoney(value) { const n = Number(String(value ?? "").replace(/,/g, "")); return Number.isFinite(n) ? n.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"; }
+    function timestampToUTC8(ts) { const n = Number(ts); return Number.isFinite(n) ? new Date((n + 8 * 3600) * 1000).toISOString().replace("T", " ").slice(0, 19) : ""; }
+    function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+    function joinErrors(...parts) { return parts.filter(Boolean).join(" | "); }
+
+    function computeCostPerPoint(pointsStr, costStr) {
+      const p = Number(pointsStr || "0"), c = Number(costStr || "0");
+      if (!isFinite(p) || !isFinite(c) || p < 0 || c < 0) return "";
+      if (p === 0 && c === 0) return "";
+      if (p === 0) return "Infinity";
+      if (c === 0) return "0";
+      return String(c / p);
     }
 
-    function timestampToUTC8(ts) {
-      if (!ts && ts !== 0) return "";
-      const n = Number(ts);
-      if (!Number.isFinite(n)) return "";
-      return new Date((n + 8 * 3600) * 1000).toISOString().replace("T", " ").slice(0, 19);
+    function computeVolumePerPoint(pointsStr, volumeStr) {
+      const p = Number(pointsStr || "0"), v = Number(volumeStr || "0");
+      if (!isFinite(p) || !isFinite(v) || p < 0 || v < 0) return "";
+      if (p === 0 && v === 0) return "";
+      if (p === 0) return "Infinity";
+      return String(v / p);
     }
 
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
+    function computeOptionalVolumePerPoint(pointsStr, volumeStr) {
+      if (volumeStr === "" || volumeStr === undefined || volumeStr === null) return "";
+      return computeVolumePerPoint(pointsStr, volumeStr);
     }
+
+    function formatCostPerPoint(s) {
+      if (s === "" || s === undefined || s === null) return "—";
+      if (s === "Infinity") return "无积分";
+      const n = Number(s);
+      if (!isFinite(n) || n < 0) return "—";
+      if (n === 0) return "免费";
+      if (n >= 1) return "$" + n.toFixed(2);
+      if (n >= 0.01) return "$" + n.toFixed(4);
+      if (n >= 0.0001) return "$" + n.toFixed(5);
+      return "$" + n.toExponential(2);
+    }
+
+    function formatVolumePerPoint(s) {
+      if (s === "" || s === undefined || s === null) return "—";
+      if (s === "Infinity") return "无积分";
+      const n = Number(s);
+      return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : "—";
+    }
+
+    function isValidCpp(v) {
+      if (v === "" || v === undefined || v === null || v === "Infinity") return false;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0;
+    }
+
+    function cppSortValue(v) {
+      if (v === "" || v === undefined || v === null || v === "Infinity") return Number.POSITIVE_INFINITY;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : Number.POSITIVE_INFINITY;
+    }
+
+    function vppSortValue(v) {
+      if (v === "" || v === undefined || v === null || v === "Infinity") return Number.POSITIVE_INFINITY;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : Number.POSITIVE_INFINITY;
+    }
+
+    function shortWallet(addr) { return addr && addr.length >= 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : (addr || ""); }
+    function debankHistoryUrl(wallet) { return `https://debank.com/profile/${encodeURIComponent(String(wallet || "").toLowerCase())}/history?chain=bsc`; }
 
     function applyProxy(realUrl) {
       const proxyPrefix = $("proxyPrefix").value.trim();
-      return proxyPrefix ? proxyPrefix + encodeURIComponent(realUrl) : realUrl;
-    }
-
-    function makeUrl(wallet) {
-      const template = $("apiTemplate").value.trim();
-      if (!template.includes("{wallet}")) throw new Error("积分 API 模板必须包含 {wallet}");
-
-      const realUrl = template.replaceAll("{wallet}", wallet);
-      return applyProxy(realUrl);
-    }
-
-    function makeTradesUrl(wallet, startTime, endTime) {
-      const template = $("tradesApiTemplate").value.trim();
-      if (!template.includes("{wallet}") || !template.includes("{start_time}") || !template.includes("{end_time}")) {
-        throw new Error("份额 API 模板必须包含 {wallet}、{start_time}、{end_time}");
-      }
-
-      const realUrl = template
-        .replaceAll("{wallet}", wallet)
-        .replaceAll("{start_time}", String(startTime))
-        .replaceAll("{end_time}", String(endTime));
-      return applyProxy(realUrl);
-    }
-
-    function shouldQueryShares() {
-      const el = $("queryShares");
-      return !el || el.checked;
-    }
-
-    async function fetchJsonWithTimeout(url, timeoutMs) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          headers: { "Accept": "application/json" },
-          cache: "no-store",
-          signal: controller.signal
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status} ${res.statusText}${text ? " - " + text.slice(0, 160) : ""}`);
-        }
-
-        return await res.json();
-      } finally {
-        clearTimeout(timer);
-      }
+      if (!proxyPrefix) return realUrl;
+      if (String(realUrl).startsWith("/")) return realUrl;
+      return proxyPrefix.includes("{url}") ? proxyPrefix.replaceAll("{url}", encodeURIComponent(realUrl)) : proxyPrefix + encodeURIComponent(realUrl);
     }
 
     const rateLimiter = {
@@ -1461,69 +636,213 @@
         while (true) {
           const now = performance.now();
           this.times = this.times.filter(t => now - t < windowMs);
-          if (this.times.length < qps) {
-            this.times.push(now);
-            return;
-          }
-          const oldest = this.times[0];
-          const waitMs = Math.max(0, windowMs - (now - oldest) + 1);
-          await sleep(waitMs);
+          if (this.times.length < qps) { this.times.push(now); return; }
+          await sleep(Math.max(0, windowMs - (now - this.times[0]) + 1));
         }
-      },
+      }
     };
 
-    async function fetchWithRetries(url) {
+    async function fetchJsonWithTimeout(url, timeoutMs, extraHeaders = {}) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { method: "GET", headers: { "Accept": "application/json", ...extraHeaders }, cache: "no-store", signal: controller.signal });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${res.statusText}${text ? " - " + text.slice(0, 160) : ""}`);
+        }
+        const text = await res.text();
+        return text ? JSON.parse(text) : null;
+      } finally { clearTimeout(timer); }
+    }
+
+    async function fetchWithRetries(url, extraHeaders = {}) {
       const retries = Math.max(0, Number($("retries").value || 0));
       const timeoutMs = Math.max(3000, Number($("timeoutMs").value || 20000));
-
       let lastError = "";
       for (let attempt = 0; attempt <= retries; attempt++) {
         if (state.abort) throw new Error("已停止");
         await rateLimiter.acquire();
         if (state.abort) throw new Error("已停止");
-        try {
-          return await fetchJsonWithTimeout(url, timeoutMs);
-        } catch (err) {
+        try { return await fetchJsonWithTimeout(applyProxy(url), timeoutMs, extraHeaders); }
+        catch (err) {
           lastError = err && err.message ? err.message : String(err);
-          if (attempt < retries) {
-            await sleep(700 * (attempt + 1));
-          }
+          if (attempt < retries) await sleep(700 * (attempt + 1));
         }
       }
       throw new Error(lastError || "请求失败");
     }
 
-    async function fetchWallet(wallet) {
-      return fetchWithRetries(makeUrl(wallet));
+    function makeUrl(wallet) {
+      const template = $("apiTemplate").value.trim();
+      if (!template.includes("{wallet}")) throw new Error("积分 API 模板必须包含 {wallet}");
+      return template.replaceAll("{wallet}", wallet);
     }
+
+    function makeTradesUrl(wallet, startTime, endTime) {
+      const template = $("tradesApiTemplate").value.trim();
+      if (!template.includes("{wallet}") || !template.includes("{start_time}") || !template.includes("{end_time}")) throw new Error("份额 API 模板必须包含 {wallet}、{start_time}、{end_time}");
+      return template.replaceAll("{wallet}", wallet).replaceAll("{start_time}", String(startTime)).replaceAll("{end_time}", String(endTime));
+    }
+
+    async function fetchWallet(wallet) { return fetchWithRetries(makeUrl(wallet)); }
+    function shouldQueryShares() { const el = $("queryShares"); return !el || el.checked; }
 
     async function fetchTradeShares(wallet, startTime, endTime) {
       if (!shouldQueryShares()) return { shares: "", error: "" };
-      if (startTime === "" || endTime === "" || startTime === null || endTime === null || startTime === undefined || endTime === undefined) {
-        return { shares: "", error: "缺少 week_start / week_end，无法查询份额" };
-      }
-
+      if (startTime === "" || endTime === "" || startTime === null || endTime === null || startTime === undefined || endTime === undefined) return { shares: "", error: "缺少 week_start / week_end，无法查询份额" };
       try {
         const data = await fetchWithRetries(makeTradesUrl(wallet, startTime, endTime));
-        return {
-          shares: normalizeDecimal(data && data.total_volume_shares != null ? data.total_volume_shares : "0"),
-          error: ""
-        };
+        const v = firstValueFromPaths(data, ["total_volume_shares", "data.total_volume_shares", "result.total_volume_shares"]);
+        return { shares: normalizeDecimal(v != null ? v : "0"), error: "" };
       } catch (err) {
         const message = err && err.message ? err.message : String(err);
         if (state.abort || message === "已停止") throw err;
-        return {
-          shares: "",
-          error: `份额接口失败: ${message}`
-        };
+        return { shares: "", error: `份额接口失败: ${message}` };
       }
     }
 
-        function decimalMul(value, multiplierText) {
-      const A = toScaled(value);
-      const M = toScaled(multiplierText);
-      const n = A.n * M.n;
-      return formatScaled(n, A.scale + M.scale);
+    function pathValues(obj, path) {
+      const parts = String(path || "").split(".").map(x => x.trim()).filter(Boolean);
+      let current = [obj];
+      for (const part of parts) {
+        const isArray = part.endsWith("[]");
+        const key = isArray ? part.slice(0, -2) : part;
+        const next = [];
+        for (const item of current) {
+          if (item === null || item === undefined) continue;
+          const value = key ? item[key] : item;
+          if (isArray) { if (Array.isArray(value)) next.push(...value); }
+          else next.push(value);
+        }
+        current = next;
+      }
+      return current.filter(v => v !== undefined && v !== null && v !== "");
+    }
+
+    function firstValueFromPaths(obj, paths) {
+      for (const path of paths) {
+        const values = pathValues(obj, path);
+        if (values.length) return values[0];
+      }
+      return undefined;
+    }
+
+    function valuesFromPathText(obj, pathText) {
+      const paths = String(pathText || "").split(",").map(x => x.trim()).filter(Boolean);
+      for (const path of paths) {
+        const values = pathValues(obj, path);
+        if (values.length) return values.map(v => normalizeDecimal(v));
+      }
+      return [];
+    }
+
+    function shouldQueryHoldings() { const el = $("queryHoldings"); return !el || el.checked; }
+
+    function makePositionUrl(wallet) {
+      const template = $("positionApiTemplate").value.trim();
+      if (!template) throw new Error("持仓 API 模板不能为空");
+      if (!template.includes("{wallet}") && !template.includes("{address}")) throw new Error("持仓 API 模板必须包含 {wallet} 或 {address}");
+      return template.replaceAll("{wallet}", wallet).replaceAll("{address}", wallet);
+    }
+
+
+    async function fetchPositionValue(wallet) {
+      if (!shouldQueryHoldings()) return { holding_amount_usdt: "", position_count: "", error: "" };
+      try {
+        const data = await fetchWithRetries(makePositionUrl(wallet));
+        const pathText = $("positionValuePaths").value || "data[].valueUsd";
+        let values = valuesFromPathText(data, pathText);
+        if (!values.length && Array.isArray(data)) values = data.map(x => normalizeDecimal(x.valueUsd ?? x.value_usd ?? x.currentValueUsd ?? x.current_value_usd ?? "0"));
+        if (!values.length) {
+          const arr = firstValueFromPaths(data, ["data", "positions", "result.list", "list", "result"]);
+          if (Array.isArray(arr)) values = arr.map(x => normalizeDecimal(x.valueUsd ?? x.value_usd ?? x.currentValueUsd ?? x.current_value_usd ?? x.currentValueInQuoteToken ?? "0"));
+        }
+        if (!values.length) return { holding_amount_usdt: "", position_count: "", error: "持仓接口返回了数据，但没有按字段路径取到持仓金额" };
+        return { holding_amount_usdt: decimalSum(values), position_count: String(values.length), error: "" };
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        if (state.abort || message === "已停止") throw err;
+        return { holding_amount_usdt: "", position_count: "", error: `持仓接口失败: ${message}` };
+      }
+    }
+
+    function shouldQueryBalance() { const el = $("queryBalance"); return !el || el.checked; }
+    function cleanAddress(addr) { return String(addr || "").trim().toLowerCase().replace(/^0x/, ""); }
+    function makeBalanceOfCalldata(wallet) {
+      const clean = cleanAddress(wallet);
+      if (!/^[a-f0-9]{40}$/.test(clean)) throw new Error(`钱包地址格式错误：${wallet}`);
+      return "0x70a08231" + clean.padStart(64, "0");
+    }
+
+    function rawTokenAmountToDecimal(rawValue, decimals) {
+      if (rawValue === "" || rawValue === undefined || rawValue === null) return "";
+      const s = String(rawValue).trim();
+      let n;
+      if (/^0x[0-9a-fA-F]+$/.test(s)) n = BigInt(s);
+      else if (/^\d+$/.test(s)) n = BigInt(s);
+      else return normalizeDecimal(s);
+      return formatScaled(n, Math.max(0, Number(decimals || 0)));
+    }
+
+    function rpcUrlList() {
+      return String($("rpcUrls").value || "").split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
+    }
+
+    async function rpcFetchJson(url, body, timeoutMs) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(applyProxy(url), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(body),
+          cache: "no-store",
+          signal: controller.signal
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${res.statusText}${text ? " - " + text.slice(0, 120) : ""}`);
+        }
+        return await res.json();
+      } finally { clearTimeout(timer); }
+    }
+
+    async function rpcEthCall(payload) {
+      const urls = rpcUrlList();
+      if (!urls.length) throw new Error("未填写 BSC RPC URL");
+      const timeoutMs = Math.max(3000, Number($("timeoutMs").value || 20000));
+      let lastError = "";
+      for (const url of urls) {
+        if (state.abort) throw new Error("已停止");
+        await rateLimiter.acquire();
+        try {
+          const data = await rpcFetchJson(url, payload, timeoutMs);
+          if (data && data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+          const result = Array.isArray(data) ? data[0]?.result : data?.result;
+          if (typeof result === "string" && result.startsWith("0x")) return result;
+          throw new Error("RPC 未返回 eth_call result");
+        } catch (err) {
+          lastError = err && err.message ? err.message : String(err);
+          if (state.abort || lastError === "已停止") throw err;
+        }
+      }
+      throw new Error(lastError || "RPC 请求失败");
+    }
+
+    async function fetchUsdtBalance(wallet) {
+      if (!shouldQueryBalance()) return { available_balance_usdt: "", error: "" };
+      try {
+        const token = ($("usdtAddress").value || "").trim();
+        if (!/^0x[a-fA-F0-9]{40}$/.test(token)) throw new Error("USDT 合约地址格式错误");
+        const decimals = Number($("usdtDecimals").value || 18);
+        const hex = await rpcEthCall({ jsonrpc: "2.0", id: Date.now(), method: "eth_call", params: [{ to: token, data: makeBalanceOfCalldata(wallet) }, "latest"] });
+        return { available_balance_usdt: rawTokenAmountToDecimal(hex === "0x" ? "0x0" : hex, decimals), error: "" };
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        if (state.abort || message === "已停止") throw err;
+        return { available_balance_usdt: "", error: `余额查询失败: ${message}` };
+      }
     }
 
     function readMultiplier(id, fallback) {
@@ -1533,53 +852,38 @@
       return normalized === "0" && raw !== "0" ? fallback : normalized;
     }
 
-    async function buildRows(wallet, data, selectedWeeks) {
+    function assetFields(holdingResult, balanceResult) {
+      const holding = holdingResult && holdingResult.holding_amount_usdt !== "" && holdingResult.holding_amount_usdt !== undefined && holdingResult.holding_amount_usdt !== null ? normalizeDecimal(holdingResult.holding_amount_usdt) : "";
+      const balance = balanceResult && balanceResult.available_balance_usdt !== "" && balanceResult.available_balance_usdt !== undefined && balanceResult.available_balance_usdt !== null ? normalizeDecimal(balanceResult.available_balance_usdt) : "";
+      let net = "";
+      if (holding !== "" || balance !== "") net = decimalAdd(holding || "0", balance || "0");
+      return { holding_amount_usdt: holding, available_balance_usdt: balance, net_asset_usdt: net };
+    }
+
+    async function buildRows(wallet, data, selectedWeeks, holdingResult, balanceResult) {
       const rows = [];
       const leaderboard = data && data.leaderboard ? data.leaderboard : {};
       const weeks = Array.isArray(data && data.weeks) ? data.weeks : [];
       const weekMap = new Map();
-
       const pointsMul = readMultiplier("pointsMultiplier", "1.1");
       const feeMul = readMultiplier("feeMultiplier", "0.9");
-
-      for (const w of weeks) {
-        weekMap.set(Number(w.week), w);
-      }
-
-      const targetWeeks = selectedWeeks === null
-        ? [...weekMap.keys()].sort((a, b) => a - b)
-        : selectedWeeks;
+      const assets = assetFields(holdingResult, balanceResult);
+      const assetError = joinErrors(holdingResult && holdingResult.error, balanceResult && balanceResult.error);
+      for (const w of weeks) weekMap.set(Number(w.week), w);
+      const targetWeeks = selectedWeeks === null ? [...weekMap.keys()].sort((a, b) => a - b) : selectedWeeks;
 
       for (const weekNo of targetWeeks) {
         const item = weekMap.get(Number(weekNo));
-
         if (!item) {
           rows.push({
-            wallet,
-            status: "week_not_found",
+            wallet, status: "week_not_found",
             total_points: normalizeDecimal(leaderboard.total_points ?? "0"),
             allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
-            week: weekNo,
-            calculated: "",
-            week_start_ts: "",
-            week_end_ts: "",
-            week_start_utc8: "",
-            week_end_utc8: "",
-            trade_count: "0",
-            paid_volume_usdt: "0",
-            free_volume_usdt: "0",
-            total_volume_usdt: "0",
-            total_volume_shares: "",
-            paid_fee_usdt: "0",
-            cost_usdt: "0",
-            points: "0",
-            cost_per_point: "",
-            total_volume_per_point: "",
-            paid_volume_per_point: "",
-            free_volume_per_point: "",
-            shares_per_point: "",
-            referral_points: "0",
-            error: "接口没有返回这一周"
+            week: weekNo, calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
+            trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
+            paid_fee_usdt: "0", cost_usdt: "0", points: "0", cost_per_point: "",
+            total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "",
+            referral_points: "0", ...assets, error: joinErrors("接口没有返回这一周", assetError)
           });
           continue;
         }
@@ -1587,10 +891,8 @@
         const paidVolume = normalizeDecimal(item.paid_volume_usdt ?? "0");
         const freeVolume = normalizeDecimal(item.free_volume_usdt ?? "0");
         const totalVolume = decimalAdd(paidVolume, freeVolume);
-        const rawFee = normalizeDecimal(item.paid_fee_usdt ?? "0");
-        const paidFee = decimalMul(rawFee, feeMul);
-        const rawPoints = normalizeDecimal(item.points ?? "0");
-        const points = decimalMul(rawPoints, pointsMul);
+        const paidFee = decimalMul(normalizeDecimal(item.paid_fee_usdt ?? "0"), feeMul);
+        const points = decimalMul(normalizeDecimal(item.points ?? "0"), pointsMul);
         const referralPoints = normalizeDecimal(item.referral_points ?? "0");
         const weekStartTs = item.week_start ?? "";
         const weekEndTs = item.week_end ?? "";
@@ -1598,328 +900,114 @@
         const totalShares = shareResult.shares;
 
         rows.push({
-          wallet,
-          status: "ok",
+          wallet, status: "ok",
           total_points: normalizeDecimal(leaderboard.total_points ?? "0"),
           allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
           week: item.week ?? weekNo,
           calculated: item.calculated === true ? "true" : item.calculated === false ? "false" : "",
-          week_start_ts: String(weekStartTs ?? ""),
-          week_end_ts: String(weekEndTs ?? ""),
-          week_start_utc8: timestampToUTC8(weekStartTs),
-          week_end_utc8: timestampToUTC8(weekEndTs),
+          week_start_ts: String(weekStartTs ?? ""), week_end_ts: String(weekEndTs ?? ""),
+          week_start_utc8: timestampToUTC8(weekStartTs), week_end_utc8: timestampToUTC8(weekEndTs),
           trade_count: String(item.trade_count ?? 0),
-          paid_volume_usdt: paidVolume,
-          free_volume_usdt: freeVolume,
-          total_volume_usdt: totalVolume,
+          paid_volume_usdt: paidVolume, free_volume_usdt: freeVolume, total_volume_usdt: totalVolume,
           total_volume_shares: totalShares,
-          paid_fee_usdt: paidFee,
-          cost_usdt: paidFee,
-          points,
+          paid_fee_usdt: paidFee, cost_usdt: paidFee, points,
           cost_per_point: computeCostPerPoint(points, paidFee),
           total_volume_per_point: computeVolumePerPoint(points, totalVolume),
           paid_volume_per_point: computeVolumePerPoint(points, paidVolume),
           free_volume_per_point: computeVolumePerPoint(points, freeVolume),
           shares_per_point: computeOptionalVolumePerPoint(points, totalShares),
           referral_points: referralPoints,
-          error: shareResult.error || ""
+          ...assets,
+          error: joinErrors(shareResult.error, assetError)
         });
       }
-
       return rows;
     }
 
-    function buildErrorDetailRow(wallet, error) {
+    function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceResult = {}) {
+      const assets = assetFields(holdingResult, balanceResult);
       return {
-        wallet,
-        status: "error",
-        total_points: "0",
-        allocation_round_points: "0",
-        week: "",
-        calculated: "",
-        week_start_ts: "",
-        week_end_ts: "",
-        week_start_utc8: "",
-        week_end_utc8: "",
-        trade_count: "0",
-        paid_volume_usdt: "0",
-        free_volume_usdt: "0",
-        total_volume_usdt: "0",
-        total_volume_shares: "",
-        paid_fee_usdt: "0",
-        cost_usdt: "0",
-        points: "0",
-        cost_per_point: "",
-        total_volume_per_point: "",
-        paid_volume_per_point: "",
-        free_volume_per_point: "",
-        shares_per_point: "",
-        referral_points: "0",
-        error
+        wallet, status: "error",
+        total_points: "0", allocation_round_points: "0", week: "", calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
+        trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
+        paid_fee_usdt: "0", cost_usdt: "0", points: "0", cost_per_point: "",
+        total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "", referral_points: "0",
+        ...assets,
+        error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error)
       };
     }
 
     function buildSummaryRows(detailRows) {
       const map = new Map();
-
       for (const row of detailRows) {
         const wallet = row.wallet;
         if (!map.has(wallet)) {
           map.set(wallet, {
-            wallet,
-            status: row.status === "error" ? "error" : "ok",
-            total_points: row.total_points || "0",
-            selected_weeks: [],
-            calculated_all: "true",
-            trade_count: "0",
-            paid_volume_usdt: "0",
-            free_volume_usdt: "0",
-            total_volume_usdt: "0",
-            total_volume_shares: "",
-            paid_fee_usdt: "0",
-            cost_usdt: "0",
-            points: "0",
-            referral_points: "0",
-            error: ""
+            wallet, status: row.status === "error" ? "error" : "ok", total_points: row.total_points || "0", selected_weeks: [], calculated_all: "true",
+            trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
+            paid_fee_usdt: "0", cost_usdt: "0", points: "0", referral_points: "0",
+            holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", error: ""
           });
         }
-
         const s = map.get(wallet);
-        if (row.status === "error") {
-          s.status = "error";
-          s.calculated_all = "";
-          s.error = row.error || "请求失败";
-          continue;
-        }
+        if (row.holding_amount_usdt !== "" && row.holding_amount_usdt !== undefined && row.holding_amount_usdt !== null) s.holding_amount_usdt = normalizeDecimal(row.holding_amount_usdt);
+        if (row.available_balance_usdt !== "" && row.available_balance_usdt !== undefined && row.available_balance_usdt !== null) s.available_balance_usdt = normalizeDecimal(row.available_balance_usdt);
+        if (s.holding_amount_usdt !== "" || s.available_balance_usdt !== "") s.net_asset_usdt = decimalAdd(s.holding_amount_usdt || "0", s.available_balance_usdt || "0");
 
-        if (row.status !== "ok") {
-          if (!s.error) s.error = row.error || row.status;
-          continue;
-        }
+        if (row.status === "error") { s.status = "error"; s.calculated_all = ""; s.error = joinErrors(s.error, row.error || "请求失败"); continue; }
+        if (row.status !== "ok") { if (!s.error) s.error = row.error || row.status; continue; }
 
         s.total_points = row.total_points || s.total_points;
         s.selected_weeks.push(String(row.week));
-
-        if (String(row.calculated).toLowerCase() !== "true") {
-          s.calculated_all = "false";
-        }
-
+        if (String(row.calculated).toLowerCase() !== "true") s.calculated_all = "false";
         s.trade_count = decimalAdd(s.trade_count, row.trade_count || "0");
         s.paid_volume_usdt = decimalAdd(s.paid_volume_usdt, row.paid_volume_usdt || "0");
         s.free_volume_usdt = decimalAdd(s.free_volume_usdt, row.free_volume_usdt || "0");
         s.total_volume_usdt = decimalAdd(s.total_volume_usdt, row.total_volume_usdt || "0");
         if (row.total_volume_shares !== "" && row.total_volume_shares !== undefined && row.total_volume_shares !== null) {
-          s.total_volume_shares = s.total_volume_shares === ""
-            ? normalizeDecimal(row.total_volume_shares)
-            : decimalAdd(s.total_volume_shares, row.total_volume_shares || "0");
+          s.total_volume_shares = s.total_volume_shares === "" ? normalizeDecimal(row.total_volume_shares) : decimalAdd(s.total_volume_shares, row.total_volume_shares || "0");
         }
         s.paid_fee_usdt = decimalAdd(s.paid_fee_usdt, row.paid_fee_usdt || "0");
         s.cost_usdt = decimalAdd(s.cost_usdt, row.cost_usdt || "0");
         s.points = decimalAdd(s.points, row.points || "0");
         s.referral_points = decimalAdd(s.referral_points, row.referral_points || "0");
-        if (row.error && row.error.startsWith("份额接口失败") && !s.error) s.error = row.error;
+        if (row.error && !s.error) s.error = row.error;
       }
-
-      const rows = [...map.values()].map(row => ({
+      return [...map.values()].map(row => ({
         ...row,
         selected_weeks: row.selected_weeks.join(","),
-        cost_per_point: computeCostPerPoint(row.points, row.cost_usdt)
+        cost_per_point: computeCostPerPoint(row.points, row.cost_usdt),
+        total_volume_per_point: computeVolumePerPoint(row.points, row.total_volume_usdt),
+        paid_volume_per_point: computeVolumePerPoint(row.points, row.paid_volume_usdt),
+        free_volume_per_point: computeVolumePerPoint(row.points, row.free_volume_usdt),
+        shares_per_point: computeOptionalVolumePerPoint(row.points, row.total_volume_shares)
       }));
-
-      return enrichSummaryRows(rows);
     }
 
-    function updateStats() {
-      $("statProgress").textContent = `${state.completedWallets} / ${state.totalWallets}`;
-      $("statSuccess").textContent = `${state.successWallets} / ${state.failedWallets}`;
-
-      let totalVolume = "0", totalShares = "0", sharesCount = 0, totalCost = "0", totalTrades = "0", totalPoints = "0";
-      let calculated = 0, uncalculated = 0;
-      for (const r of state.detailRows) {
-        if (r.status !== "ok") continue;
-        totalVolume = decimalAdd(totalVolume, r.total_volume_usdt);
-        if (r.total_volume_shares !== "" && r.total_volume_shares !== undefined && r.total_volume_shares !== null) {
-          totalShares = decimalAdd(totalShares, r.total_volume_shares);
-          sharesCount += 1;
-        }
-        totalCost = decimalAdd(totalCost, r.cost_usdt);
-        totalTrades = decimalAdd(totalTrades, r.trade_count);
-        totalPoints = decimalAdd(totalPoints, r.points);
-        if (r.calculated === "true") calculated += 1;
-        else if (r.calculated === "false") uncalculated += 1;
+    function findBestWallet(rows) {
+      let best = null, bestVal = Number.POSITIVE_INFINITY;
+      for (const row of rows) {
+        if (row.status !== "ok" || !isValidCpp(row.cost_per_point)) continue;
+        const v = cppSortValue(row.cost_per_point);
+        if (v < bestVal) { bestVal = v; best = row; }
       }
-
-      $("statVolume").textContent = formatTwoDecimal(totalVolume);
-      const statShares = $("statShares");
-      if (statShares) statShares.textContent = sharesCount ? formatTwoDecimal(totalShares) : "—";
-      $("statCost").textContent = shortDecimal(totalCost, 6) + " U";
-      $("statTrades").textContent = totalTrades;
-      $("statPoints").textContent = formatTwoDecimal(totalPoints);
-      $("statCalcSplit").textContent = `${calculated} / ${uncalculated}`;
-
-      const overallCpp = computeCostPerPoint(totalPoints, totalCost);
-      $("statOverallCpp").textContent = formatCostPerPoint(overallCpp);
-
-      const best = findBestWallet(getSortedRows(state.summaryRows, "summary").sorted, state.highlightMode);
-      state.bestWallet = best ? best.wallet : null;
-      const panel = $("bestPanel");
-      if (best) {
-        panel.hidden = false;
-        $("bestModeTag").textContent = bestModeLabel(state.highlightMode);
-        const bestAddrEl = $("bestAddr");
-        bestAddrEl.textContent = shortWallet(best.wallet);
-        bestAddrEl.title = best.wallet;
-        bestAddrEl.dataset.wallet = best.wallet;
-        $("bestPoints").textContent = formatTwoDecimal(best.points);
-        $("bestCost").textContent = shortDecimal(best.cost_usdt, 6);
-        $("bestCpp").textContent = formatCostPerPoint(best.cost_per_point);
-        const bestSharesEl = $("bestShares");
-        const bestSharesPerPointEl = $("bestSharesPerPoint");
-        if (bestSharesEl) bestSharesEl.textContent = best.total_volume_shares ? formatTwoDecimal(best.total_volume_shares) : "—";
-        if (bestSharesPerPointEl) bestSharesPerPointEl.textContent = formatVolumePerPoint(best.shares_per_point);
-      } else {
-        panel.hidden = true;
-        const bestAddrEl = $("bestAddr");
-        bestAddrEl.textContent = "-";
-        bestAddrEl.title = "";
-        delete bestAddrEl.dataset.wallet;
-      }
-
-      const pct = state.totalWallets ? Math.round(state.completedWallets / state.totalWallets * 100) : 0;
-      $("progressBar").style.width = `${pct}%`;
-
-      const hasRows = state.detailRows.length > 0;
-      $("exportSummaryBtn").disabled = !hasRows;
-      $("exportDetailBtn").disabled = !hasRows;
-      $("copySummaryBtn").disabled = !hasRows;
-      const copyFilteredBtn = $("copyFilteredWalletsBtn");
-      if (copyFilteredBtn) copyFilteredBtn.disabled = !state.summaryRows.length;
-      const saveSnapBtn = $("saveSnapshotBtn");
-      if (saveSnapBtn) saveSnapBtn.disabled = !state.summaryRows.length;
-      const expDeltaBtn = $("exportDeltaBtn");
-      if (expDeltaBtn) expDeltaBtn.disabled = !state.activeSnapshotId || !state.summaryRows.length;
-    }
-
-    function cellClass(key, value) {
-      if (key === "status") {
-        if (value === "ok") return "ok";
-        if (value === "error") return "badText";
-        return "warnText";
-      }
-      if (key === "calculated" || key === "calculated_all") {
-        if (value === "true") return "ok";
-        if (value === "false") return "warnText";
-      }
-      if (key === "wallet") return "wallet";
-      if (CPP_KEYS.has(key)) {
-        if (value === "" || value === undefined || value === null) return "cpp none";
-        if (value === "Infinity") return "cpp inf";
-        const n = Number(value);
-        if (n === 0) return "cpp free";
-        if (!isFinite(n) || n < 0) return "cpp none";
-        return "cpp";
-      }
-      return "";
+      return best;
     }
 
     function filterRows(rows, tableKey) {
       let result = rows;
       if (state.onlyCalculated) {
-        if (tableKey === "detail") {
-          result = result.filter(r => String(r.calculated).toLowerCase() === "true");
-        } else if (tableKey === "summary") {
-          result = result.filter(r => String(r.calculated_all).toLowerCase() === "true");
-        }
+        if (tableKey === "detail") result = result.filter(r => String(r.calculated).toLowerCase() === "true");
+        else result = result.filter(r => String(r.calculated_all).toLowerCase() === "true");
       }
-      if (state.minPoints > 0) {
-        result = result.filter(r => {
-          const n = Number(r.points);
-          return isFinite(n) && n >= state.minPoints;
-        });
-      }
-      if (state.minVolume > 0) {
-        result = result.filter(r => {
-          const n = Number(r.total_volume_usdt);
-          return isFinite(n) && n >= state.minVolume;
-        });
-      }
-      if (state.minTrades > 0) {
-        result = result.filter(r => {
-          const n = Number(r.trade_count);
-          return isFinite(n) && n >= state.minTrades;
-        });
-      }
-      if (state.maxCpp > 0) {
-        result = result.filter(r => isValidCpp(r.cost_per_point) && Number(r.cost_per_point) <= state.maxCpp);
-      }
-      if (state.maxTotalVolumePerPoint > 0) {
-        result = result.filter(r => {
-          const v = vppSortValue(r.total_volume_per_point);
-          return isFinite(v) && v <= state.maxTotalVolumePerPoint;
-        });
-      }
-      if (state.maxPaidVolumePerPoint > 0) {
-        result = result.filter(r => {
-          const v = vppSortValue(r.paid_volume_per_point);
-          return isFinite(v) && v <= state.maxPaidVolumePerPoint;
-        });
-      }
-      if (state.maxSharesPerPoint > 0) {
-        result = result.filter(r => {
-          const v = vppSortValue(r.shares_per_point);
-          return isFinite(v) && v <= state.maxSharesPerPoint;
-        });
-      }
-      if (state.minCost > 0) {
-        result = result.filter(r => {
-          const n = Number(r.cost_usdt);
-          return isFinite(n) && n >= state.minCost;
-        });
-      }
-      if (state.onlyZeroReferral) {
-        result = result.filter(r => {
-          const n = Number(r.referral_points);
-          return isFinite(n) && n === 0;
-        });
-      }
-      if (state.excludeLowSample) {
-        result = result.filter(passesLowSample);
-      }
+      if (state.minPoints > 0) result = result.filter(r => num(r.points) >= state.minPoints);
+      if (state.minBalance > 0) result = result.filter(r => num(r.available_balance_usdt) >= state.minBalance);
+      if (state.minHolding > 0) result = result.filter(r => num(r.holding_amount_usdt) >= state.minHolding);
+      if (state.minNetAsset > 0) result = result.filter(r => num(r.net_asset_usdt) >= state.minNetAsset);
+      if (state.maxCpp > 0) result = result.filter(r => isValidCpp(r.cost_per_point) && Number(r.cost_per_point) <= state.maxCpp);
       const q = state.filterText.trim().toLowerCase();
       if (!q) return result;
-      return result.filter(row => {
-        for (const key in row) {
-          const v = row[key];
-          if (v === null || v === undefined) continue;
-          if (String(v).toLowerCase().includes(q)) return true;
-        }
-        const tag = state.walletTags[row.wallet] || "";
-        return tag.toLowerCase().includes(q);
-      });
-    }
-
-    function updateFilterHint() {
-      const parts = [];
-      if (state.minPoints > 0) parts.push(`积分≥${state.minPoints}`);
-      if (state.minVolume > 0) parts.push(`总交易量≥${state.minVolume}`);
-      if (state.minTrades > 0) parts.push(`交易次数≥${state.minTrades}`);
-      if (state.maxCpp > 0) parts.push(`积分成本≤${state.maxCpp}`);
-      if (state.maxTotalVolumePerPoint > 0) parts.push(`总量/分≤${state.maxTotalVolumePerPoint}`);
-      if (state.maxPaidVolumePerPoint > 0) parts.push(`付费量/分≤${state.maxPaidVolumePerPoint}`);
-      if (state.maxSharesPerPoint > 0) parts.push(`份额/分≤${state.maxSharesPerPoint}`);
-      if (state.minCost > 0) parts.push(`手续费≥${state.minCost}U`);
-      if (state.onlyZeroReferral) parts.push("推荐积分=0");
-      if (state.excludeLowSample) parts.push("排除低样本");
-      if (state.onlyCalculated) parts.push("已结算");
-      if (state.topN > 0) parts.push(`Top ${state.topN}`);
-      const hint = $("filterHint");
-      if (parts.length) {
-        hint.textContent = `启用中: ${parts.join(" / ")}`;
-        hint.classList.add("active");
-      } else {
-        hint.textContent = "";
-        hint.classList.remove("active");
-      }
+      return result.filter(row => Object.values(row).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(q)));
     }
 
     function sortRows(rows, sortState) {
@@ -1929,34 +1017,18 @@
       const numeric = numericKeys.has(key);
       const isCpp = CPP_KEYS.has(key);
       const isVpp = VPP_KEYS.has(key);
-
       return [...rows].sort((a, b) => {
         const va = a[key], vb = b[key];
-        if (isVpp) {
-          const aBad = va === "" || va === null || va === undefined || va === "Infinity";
-          const bBad = vb === "" || vb === null || vb === undefined || vb === "Infinity";
-          if (aBad && bBad) return 0;
-          if (aBad) return 1;
-          if (bBad) return -1;
-          return (vppSortValue(va) - vppSortValue(vb)) * dir;
-        }
         if (isCpp) {
-          // Custom: "" → push to end regardless of direction; "Infinity" → worst.
-          const aEmpty = va === "" || va === null || va === undefined;
-          const bEmpty = vb === "" || vb === null || vb === undefined;
-          if (aEmpty && bEmpty) return 0;
-          if (aEmpty) return 1;
-          if (bEmpty) return -1;
+          const ae = va === "" || va === null || va === undefined, be = vb === "" || vb === null || vb === undefined;
+          if (ae && be) return 0; if (ae) return 1; if (be) return -1;
           return (cppSortValue(va) - cppSortValue(vb)) * dir;
         }
-        const aEmpty = va === "" || va === null || va === undefined;
-        const bEmpty = vb === "" || vb === null || vb === undefined;
-        if (aEmpty && bEmpty) return 0;
-        if (aEmpty) return 1;
-        if (bEmpty) return -1;
+        if (isVpp) return (vppSortValue(va) - vppSortValue(vb)) * dir;
+        const ae = va === "" || va === null || va === undefined, be = vb === "" || vb === null || vb === undefined;
+        if (ae && be) return 0; if (ae) return 1; if (be) return -1;
         if (numeric) {
-          const na = Number(va);
-          const nb = Number(vb);
+          const na = Number(va), nb = Number(vb);
           if (!Number.isFinite(na) && !Number.isFinite(nb)) return 0;
           if (!Number.isFinite(na)) return 1;
           if (!Number.isFinite(nb)) return -1;
@@ -1966,209 +1038,66 @@
       });
     }
 
-    function renderCellValue(td, key, value, ctx, row, tableKey) {
-      if (key === "tag") {
-        td.innerHTML = "";
-        const wallet = row && row.wallet ? row.wallet : "";
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "tagInput";
-        input.placeholder = "—";
-        input.value = wallet ? (state.walletTags[wallet] || "") : "";
-        input.dataset.wallet = wallet;
-        input.maxLength = 40;
-        td.appendChild(input);
-        return;
-      }
-      if (key === "actions") {
-        td.innerHTML = "";
-        const wallet = row && row.wallet ? row.wallet : "";
-        const isError = row && row.status === "error";
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "actionBtn";
-        btn.textContent = isError ? "重试" : "刷新";
-        btn.dataset.retryWallet = wallet;
-        if (!wallet) btn.disabled = true;
-        td.appendChild(btn);
-        return;
-      }
-      if (TWO_DECIMAL_DISPLAY_KEYS.has(key)) {
-        td.textContent = formatTwoDecimal(value);
-        td.title = value === "" || value === undefined || value === null ? "" : String(value);
-        return;
-      }
-      if (VPP_KEYS.has(key)) {
-        const unit = key === "shares_per_point" ? "份额" : "交易量";
-        td.textContent = formatVolumePerPoint(value);
-        td.title = value === "Infinity" ? `有${unit}但没有积分` : (value ? `${formatVolumePerPoint(value)} ${unit} / 1积分` : "");
-        return;
-      }
-      if (key === "delta_cost_usdt") {
-        td.textContent = value ? shortDecimal(value, 6) : "—";
-        td.title = value || "";
-        return;
-      }
-      if (key === "delta_points") {
-        td.textContent = value ? shortDecimal(value, 4) : "—";
-        td.title = value || "";
-        return;
-      }
-      if (CPP_KEYS.has(key)) {
-        td.innerHTML = "";
-        const wrap = document.createElement("span");
-        wrap.className = "cppInner";
-        const num = document.createElement("span");
-        num.className = "cppVal";
-        num.textContent = formatCostPerPoint(value);
-        const bar = document.createElement("span");
-        bar.className = "cppBar";
-        const fill = document.createElement("span");
-        fill.className = "cppFill";
+    function getSortedRows(rows, tableKey) {
+      const filtered = filterRows(rows, tableKey);
+      return { filtered, sorted: sortRows(filtered, state.sort[tableKey]) };
+    }
 
-        let pct = 0;
-        let title = "";
-        if (value === "" || value === undefined || value === null) {
-          pct = 0;
-          title = "无数据";
-        } else if (value === "Infinity") {
-          pct = 6;
-          title = "有手续费但没拿到积分";
-        } else {
-          const n = Number(value);
-          if (n === 0) {
-            pct = 100;
-            title = "手续费为 0，相当于免费拿到积分";
-          } else if (ctx && ctx.minByKey && isFinite(ctx.minByKey[key]) && ctx.minByKey[key] > 0 && n > 0) {
-            pct = Math.max(4, Math.min(100, (ctx.minByKey[key] / n) * 100));
-            title = `${formatCostPerPoint(value)}，每个积分实际花费`;
-          } else if (n > 0) {
-            pct = 100;
-            title = `${formatCostPerPoint(value)}，每个积分实际花费`;
-          }
-        }
-        fill.style.width = pct + "%";
+    function cellClass(key, value) {
+      if (key === "status") { if (value === "ok") return "ok"; if (value === "error") return "badText"; return "warnText"; }
+      if (key === "calculated" || key === "calculated_all") { if (value === "true") return "ok"; if (value === "false") return "warnText"; }
+      if (key === "wallet") return "wallet";
+      if (MONEY_KEYS.has(key)) return "money";
+      if (CPP_KEYS.has(key)) { if (value === "" || value === undefined || value === null) return "cpp none"; if (value === "Infinity") return "cpp inf"; if (Number(value) === 0) return "cpp free"; return "cpp"; }
+      return "";
+    }
 
-        bar.appendChild(fill);
-        wrap.append(num, bar);
-        td.appendChild(wrap);
-        td.title = title;
-        return;
-      }
+    function renderCellValue(td, key, value, row) {
       if (key === "wallet" && value) {
         td.innerHTML = "";
-
-        const walletKey = normalizeWalletKey(value);
-        const viewed = state.visitedWallets.has(walletKey);
-
-        td.title = viewed ? `${value}（已看）` : value;
-
-        const wrap = document.createElement("span");
-        wrap.className = "walletInner";
-
-        const link = document.createElement("a");
-        link.className = "walletLink";
-        if (viewed) link.classList.add("viewed");
-        // 表格里只显示短地址，避免钱包列过宽；悬停、复制、跳转仍使用完整地址。
-        link.textContent = shortWallet(value);
-        link.title = value;
-        link.href = debankHistoryUrl(value);
-
-        // 在新标签打开 Debank，保留当前查询页面。
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-
-        link.addEventListener("click", () => {
-          markWalletVisited(value);
-        });
-
-        wrap.appendChild(link);
-
-        if (viewed) {
-          const badge = document.createElement("span");
-          badge.className = "walletBadge viewed";
-          badge.textContent = "已看";
-          wrap.appendChild(badge);
-        }
-
-        const btn = document.createElement("button");
-        btn.className = "copyBtn";
-        btn.type = "button";
-        btn.textContent = "复制";
-        btn.dataset.wallet = value;
-
-        wrap.appendChild(btn);
-        td.appendChild(wrap);
-        return;
+        const wrap = document.createElement("span"); wrap.className = "walletInner";
+        const link = document.createElement("a"); link.className = "walletLink"; link.textContent = shortWallet(value); link.title = value; link.href = debankHistoryUrl(value); link.target = "_blank"; link.rel = "noopener noreferrer";
+        const btn = document.createElement("button"); btn.className = "copyBtn"; btn.type = "button"; btn.textContent = "复制"; btn.dataset.wallet = value;
+        wrap.append(link, btn); td.appendChild(wrap); return;
       }
-      td.textContent = value;
-      td.title = value;
-    }
-
-    function findBestWallet(summaryRows, mode = state.highlightMode) {
-      let best = null;
-      let bestVal = mode === "cost_per_point" || mode === "delta_cost_per_point" || VPP_KEYS.has(mode)
-        ? Number.POSITIVE_INFINITY
-        : Number.NEGATIVE_INFINITY;
-
-      for (const row of summaryRows) {
-        if (row.status !== "ok") continue;
-        let value;
-        if (mode === "cost_per_point" || mode === "delta_cost_per_point") {
-          if (!isValidCpp(row[mode])) continue;
-          value = cppSortValue(row[mode]);
-          if (value < bestVal) { bestVal = value; best = row; }
-        } else if (VPP_KEYS.has(mode)) {
-          value = vppSortValue(row[mode]);
-          if (!Number.isFinite(value)) continue;
-          if (value < bestVal) { bestVal = value; best = row; }
-        } else if (mode === "points" || mode === "total_volume_shares") {
-          value = Number(row[mode]);
-          if (!Number.isFinite(value)) continue;
-          if (value > bestVal) { bestVal = value; best = row; }
-        } else {
-          if (!isValidCpp(row.cost_per_point)) continue;
-          value = cppSortValue(row.cost_per_point);
-          if (value < bestVal) { bestVal = value; best = row; }
+      if (MONEY_KEYS.has(key)) { td.textContent = value === "" || value === undefined || value === null ? "—" : formatMoney(value); td.title = value || ""; return; }
+      if (TWO_DECIMAL_KEYS.has(key)) { td.textContent = formatTwoDecimal(value); td.title = value || ""; return; }
+      if (VPP_KEYS.has(key)) { td.textContent = formatVolumePerPoint(value); td.title = value || ""; return; }
+      if (CPP_KEYS.has(key)) {
+        td.innerHTML = "";
+        const wrap = document.createElement("span"); wrap.className = "cppInner";
+        const num = document.createElement("span"); num.className = "cppVal"; num.textContent = formatCostPerPoint(value);
+        const bar = document.createElement("span"); bar.className = "cppBar";
+        const fill = document.createElement("span"); fill.className = "cppFill";
+        let pct = 0;
+        if (value === "Infinity") pct = 6;
+        else if (isValidCpp(value)) {
+          const n = Number(value);
+          pct = n === 0 ? 100 : Math.max(4, Math.min(100, 0.0001 / n * 100));
         }
+        fill.style.width = pct + "%";
+        bar.appendChild(fill); wrap.append(num, bar); td.appendChild(wrap); return;
       }
-      return best;
+      td.textContent = value ?? ""; td.title = value ?? "";
     }
-
-    const SORTABLE_COLUMN = (key) => key !== "tag" && key !== "actions";
 
     function buildThead(columns, tableKey) {
       const thead = document.createElement("thead");
-      const trh = document.createElement("tr");
-      const indexTh = document.createElement("th");
-      indexTh.textContent = "序号";
-      trh.appendChild(indexTh);
+      const tr = document.createElement("tr");
+      const indexTh = document.createElement("th"); indexTh.textContent = "序号"; tr.appendChild(indexTh);
       for (const [key, label] of columns) {
-        const th = document.createElement("th");
-        th.dataset.key = key;
-        const labelSpan = document.createElement("span");
-        labelSpan.textContent = label;
-        th.appendChild(labelSpan);
-        if (SORTABLE_COLUMN(key)) {
-          th.className = "sortable";
-          const arrow = document.createElement("span");
-          arrow.className = "arrow";
-          th.appendChild(arrow);
-          th.addEventListener("click", () => {
-            const s = state.sort[tableKey];
-            if (s.key === key) {
-              s.dir = s.dir === "asc" ? "desc" : "asc";
-            } else {
-              s.key = key;
-              s.dir = numericKeys.has(key) ? "desc" : "asc";
-              if (CPP_KEYS.has(key)) s.dir = "asc";
-            }
-            renderAll();
-          });
-        }
-        trh.appendChild(th);
+        const th = document.createElement("th"); th.dataset.key = key; th.className = "sortable";
+        const span = document.createElement("span"); span.textContent = label; th.appendChild(span);
+        const arrow = document.createElement("span"); arrow.className = "arrow"; th.appendChild(arrow);
+        th.addEventListener("click", () => {
+          const s = state.sort[tableKey];
+          if (s.key === key) s.dir = s.dir === "asc" ? "desc" : "asc";
+          else { s.key = key; s.dir = CPP_KEYS.has(key) ? "asc" : (numericKeys.has(key) ? "desc" : "asc"); }
+          renderAll();
+        });
+        tr.appendChild(th);
       }
-      thead.appendChild(trh);
+      thead.appendChild(tr);
       updateTheadSort(thead, tableKey);
       return thead;
     }
@@ -2176,317 +1105,142 @@
     function updateTheadSort(thead, tableKey) {
       const s = state.sort[tableKey];
       thead.querySelectorAll("th.sortable").forEach(th => {
-        const key = th.dataset.key;
-        th.classList.toggle("activeSort", s.key === key);
+        th.classList.toggle("activeSort", s.key === th.dataset.key);
         const arrow = th.querySelector(".arrow");
-        if (arrow) arrow.textContent = s.key === key ? (s.dir === "desc" ? "▼" : "▲") : "↕";
+        if (arrow) arrow.textContent = s.key === th.dataset.key ? (s.dir === "desc" ? "▼" : "▲") : "↕";
       });
-    }
-
-    function buildBodyRow(row, idx, columns, ctx, tableKey, bestWallet) {
-      const tr = document.createElement("tr");
-
-      if (row.wallet && state.visitedWallets.has(normalizeWalletKey(row.wallet))) {
-        tr.classList.add("visited-row");
-      }
-
-      if (tableKey === "summary" && bestWallet && row.wallet === bestWallet) {
-        tr.classList.add("best-row");
-      }
-
-      const indexTd = document.createElement("td");
-      indexTd.textContent = String(idx + 1);
-      tr.appendChild(indexTd);
-      for (const [key] of columns) {
-        const td = document.createElement("td");
-        const value = row[key] ?? "";
-        renderCellValue(td, key, value, ctx, row, tableKey);
-        const cls = cellClass(key, value);
-        if (cls) td.className = td.className ? `${td.className} ${cls}` : cls;
-        tr.appendChild(td);
-      }
-      return tr;
-    }
-
-    function computeCppCtx(sorted) {
-      const minByKey = {};
-      for (const key of CPP_KEYS) minByKey[key] = Number.POSITIVE_INFINITY;
-      let hasFree = false;
-      for (const r of sorted) {
-        for (const key of CPP_KEYS) {
-          const v = r[key];
-          if (v === "" || v === undefined || v === null) continue;
-          if (v === "Infinity") continue;
-          const n = Number(v);
-          if (!isFinite(n) || n < 0) continue;
-          if (n === 0) { hasFree = true; continue; }
-          if (n < minByKey[key]) minByKey[key] = n;
-        }
-      }
-      return { minPosCpp: minByKey.cost_per_point, minByKey, hasFree };
-    }
-
-    const virtualState = { detail: null };
-    const VIRTUAL_THRESHOLD = 120;
-    let virtualRowHeight = 41;
-
-    function getSortedRows(rows, tableKey) {
-      const filtered = filterRows(rows, tableKey);
-      let sorted = sortRows(filtered, state.sort[tableKey]);
-      if (tableKey === "summary" && state.topN > 0) {
-        sorted = sorted.slice(0, state.topN);
-      }
-      return { filtered, sorted };
     }
 
     function renderTable(containerId, rows, columns, tableKey) {
       const box = $(containerId);
-      const view = getSortedRows(rows, tableKey);
-      const filtered = view.filtered;
-      const sorted = view.sorted;
-
-      if (state.activeTab === tableKey) {
-        const topText = tableKey === "summary" && state.topN > 0 && filtered.length > sorted.length ? ` / 筛选后 ${filtered.length}` : "";
-        $("rowCount").textContent = `${sorted.length} 行${topText}${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
-      }
-
-      if (!sorted.length) {
-        if (tableKey === "detail" && virtualState.detail) {
-          teardownVirtualDetail();
-        }
-        box.innerHTML = `<div style="padding:18px;color:var(--muted)">${rows.length ? "没有匹配的行" : "暂无数据"}</div>`;
-        return;
-      }
-
-      const ctx = computeCppCtx(sorted);
-
-      if (tableKey === "detail" && sorted.length >= VIRTUAL_THRESHOLD) {
-        renderDetailVirtual(box, sorted, columns, ctx);
-      } else {
-        if (tableKey === "detail" && virtualState.detail) {
-          teardownVirtualDetail();
-        }
-        renderTableFull(box, sorted, columns, ctx, tableKey);
-      }
-    }
-
-    function renderTableFull(box, sorted, columns, ctx, tableKey) {
-      const bestWallet = state.bestWallet;
-      const table = document.createElement("table");
-      table.appendChild(buildThead(columns, tableKey));
+      const { sorted } = getSortedRows(rows, tableKey);
+      if (state.activeTab === tableKey) $("rowCount").textContent = `${sorted.length} 行${rows.length !== sorted.length ? ` / 共 ${rows.length}` : ""}`;
+      if (!sorted.length) { box.innerHTML = `<div style="padding:18px;color:var(--muted)">${rows.length ? "没有匹配的行" : "暂无数据"}</div>`; return; }
+      const table = document.createElement("table"); table.appendChild(buildThead(columns, tableKey));
       const tbody = document.createElement("tbody");
       for (let i = 0; i < sorted.length; i++) {
-        tbody.appendChild(buildBodyRow(sorted[i], i, columns, ctx, tableKey, bestWallet));
+        const row = sorted[i]; const tr = document.createElement("tr");
+        if (tableKey === "summary" && state.bestWallet && row.wallet === state.bestWallet) tr.classList.add("best-row");
+        const idxTd = document.createElement("td"); idxTd.textContent = String(i + 1); tr.appendChild(idxTd);
+        for (const [key] of columns) {
+          const td = document.createElement("td"); const value = row[key] ?? "";
+          renderCellValue(td, key, value, row);
+          const cls = cellClass(key, value); if (cls) td.className = td.className ? `${td.className} ${cls}` : cls;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
       }
-      table.appendChild(tbody);
-      box.innerHTML = "";
-      box.appendChild(table);
+      table.appendChild(tbody); box.innerHTML = ""; box.appendChild(table);
     }
 
-    function teardownVirtualDetail() {
-      const vs = virtualState.detail;
-      if (!vs) return;
-      if (vs.scrollHandler) vs.box.removeEventListener("scroll", vs.scrollHandler);
-      virtualState.detail = null;
-    }
-
-    function renderDetailVirtual(box, sorted, columns, ctx) {
-      const OVERSCAN = 8;
-      let vs = virtualState.detail;
-
-      if (!vs || vs.box !== box || vs.columnsRef !== columns) {
-        if (vs && vs.scrollHandler) vs.box.removeEventListener("scroll", vs.scrollHandler);
-
-        const table = document.createElement("table");
-        const thead = buildThead(columns, "detail");
-        const tbody = document.createElement("tbody");
-        const colCount = columns.length + 1;
-
-        const topSpacer = document.createElement("tr");
-        topSpacer.className = "spacerRow";
-        const topSpacerTd = document.createElement("td");
-        topSpacerTd.colSpan = colCount;
-        topSpacer.appendChild(topSpacerTd);
-
-        const bottomSpacer = document.createElement("tr");
-        bottomSpacer.className = "spacerRow";
-        const bottomSpacerTd = document.createElement("td");
-        bottomSpacerTd.colSpan = colCount;
-        bottomSpacer.appendChild(bottomSpacerTd);
-
-        tbody.appendChild(topSpacer);
-        tbody.appendChild(bottomSpacer);
-        table.appendChild(thead);
-        table.appendChild(tbody);
-
-        box.innerHTML = "";
-        box.appendChild(table);
-
-        vs = {
-          box, table, thead, tbody,
-          topSpacer, topSpacerTd, bottomSpacer, bottomSpacerTd,
-          columnsRef: columns,
-          rows: [], ctx: null,
-          scrollHandler: null, scrollScheduled: false,
-          renderedStart: -1, renderedEnd: -1,
-          measured: false,
-        };
-
-        const handler = () => {
-          if (vs.scrollScheduled) return;
-          vs.scrollScheduled = true;
-          requestAnimationFrame(() => {
-            vs.scrollScheduled = false;
-            updateVirtualWindow(vs, OVERSCAN);
-          });
-        };
-        box.addEventListener("scroll", handler, { passive: true });
-        vs.scrollHandler = handler;
-
-        virtualState.detail = vs;
-      } else {
-        updateTheadSort(vs.thead, "detail");
-      }
-
-      vs.rows = sorted;
-      vs.ctx = ctx;
-      vs.renderedStart = -1;
-      vs.renderedEnd = -1;
-
-      const totalHeight = sorted.length * virtualRowHeight;
-      if (box.scrollTop > totalHeight) {
-        box.scrollTop = Math.max(0, totalHeight - box.clientHeight);
-      }
-
-      updateVirtualWindow(vs, OVERSCAN);
-
-      if (!vs.measured) {
-        requestAnimationFrame(() => {
-          const sample = vs.topSpacer.nextElementSibling;
-          if (sample && sample !== vs.bottomSpacer) {
-            const h = sample.getBoundingClientRect().height;
-            if (h > 10 && Math.abs(h - virtualRowHeight) > 1) {
-              virtualRowHeight = h;
-              vs.renderedStart = -1;
-              vs.renderedEnd = -1;
-              updateVirtualWindow(vs, OVERSCAN);
-            }
-          }
-          vs.measured = true;
-        });
-      }
-    }
-
-    function updateVirtualWindow(vs, overscan) {
-      const box = vs.box;
-      const total = vs.rows.length;
-      const rowH = virtualRowHeight;
-      const boxH = box.clientHeight || 680;
-      const scrollTop = box.scrollTop;
-
-      const start = Math.max(0, Math.floor(scrollTop / rowH) - overscan);
-      const end = Math.min(total, Math.ceil((scrollTop + boxH) / rowH) + overscan);
-
-      if (start === vs.renderedStart && end === vs.renderedEnd) return;
-
-      while (vs.topSpacer.nextSibling && vs.topSpacer.nextSibling !== vs.bottomSpacer) {
-        vs.tbody.removeChild(vs.topSpacer.nextSibling);
-      }
-
-      vs.topSpacerTd.style.height = (start * rowH) + "px";
-      vs.bottomSpacerTd.style.height = ((total - end) * rowH) + "px";
-
-      const frag = document.createDocumentFragment();
-      const columns = vs.columnsRef;
-      const ctx = vs.ctx;
-      const bestWallet = state.bestWallet;
-      for (let i = start; i < end; i++) {
-        frag.appendChild(buildBodyRow(vs.rows[i], i, columns, ctx, "detail", bestWallet));
-      }
-      vs.tbody.insertBefore(frag, vs.bottomSpacer);
-
-      vs.renderedStart = start;
-      vs.renderedEnd = end;
-    }
-
-    let renderScheduled = false;
     let summaryDirty = true;
-
-    function scheduleRender() {
-      if (renderScheduled) return;
-      renderScheduled = true;
-      requestAnimationFrame(() => {
-        renderScheduled = false;
-        renderAll();
-      });
-    }
-
     function renderAll() {
-      if (summaryDirty) {
-        state.summaryRows = buildSummaryRows(state.detailRows);
-        summaryDirty = false;
-      }
-      const best = findBestWallet(getSortedRows(state.summaryRows, "summary").sorted, state.highlightMode);
+      if (summaryDirty) { state.summaryRows = buildSummaryRows(state.detailRows); summaryDirty = false; }
+      const best = findBestWallet(getSortedRows(state.summaryRows, "summary").sorted);
       state.bestWallet = best ? best.wallet : null;
       updateFilterHint();
-      if (state.activeTab === "summary") {
-        renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
-      } else {
-        renderTable("detailBox", state.detailRows, detailColumns, "detail");
-      }
+      if (state.activeTab === "summary") renderTable("summaryBox", state.summaryRows, summaryColumns, "summary");
+      else renderTable("detailBox", state.detailRows, detailColumns, "detail");
       updateStats();
+    }
+
+    function updateStats() {
+      $("statProgress").textContent = `${state.completedWallets} / ${state.totalWallets}`;
+      $("statSuccess").textContent = `${state.successWallets} / ${state.failedWallets}`;
+      let totalVolume = "0", totalShares = "0", sharesCount = 0, totalCost = "0", totalTrades = "0", totalPoints = "0";
+      let calculated = 0, uncalculated = 0;
+      for (const r of state.detailRows) {
+        if (r.status !== "ok") continue;
+        totalVolume = decimalAdd(totalVolume, r.total_volume_usdt || "0");
+        if (r.total_volume_shares !== "" && r.total_volume_shares !== undefined && r.total_volume_shares !== null) { totalShares = decimalAdd(totalShares, r.total_volume_shares || "0"); sharesCount += 1; }
+        totalCost = decimalAdd(totalCost, r.cost_usdt || "0");
+        totalTrades = decimalAdd(totalTrades, r.trade_count || "0");
+        totalPoints = decimalAdd(totalPoints, r.points || "0");
+        if (r.calculated === "true") calculated += 1; else if (r.calculated === "false") uncalculated += 1;
+      }
+      let totalHolding = "0", holdingCount = 0, totalBalance = "0", balanceCount = 0, totalNet = "0", netCount = 0;
+      for (const r of state.summaryRows) {
+        if (r.status !== "ok") continue;
+        if (r.holding_amount_usdt !== "" && r.holding_amount_usdt !== undefined && r.holding_amount_usdt !== null) { totalHolding = decimalAdd(totalHolding, r.holding_amount_usdt || "0"); holdingCount += 1; }
+        if (r.available_balance_usdt !== "" && r.available_balance_usdt !== undefined && r.available_balance_usdt !== null) { totalBalance = decimalAdd(totalBalance, r.available_balance_usdt || "0"); balanceCount += 1; }
+        if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet = decimalAdd(totalNet, r.net_asset_usdt || "0"); netCount += 1; }
+      }
+      $("statVolume").textContent = formatMoney(totalVolume);
+      $("statShares").textContent = sharesCount ? formatMoney(totalShares) : "—";
+      $("statCost").textContent = shortDecimal(totalCost, 6) + " U";
+      $("statTrades").textContent = totalTrades;
+      $("statPoints").textContent = formatTwoDecimal(totalPoints);
+      $("statCalcSplit").textContent = `${calculated} / ${uncalculated}`;
+      $("statOverallCpp").textContent = formatCostPerPoint(computeCostPerPoint(totalPoints, totalCost));
+      $("statHolding").textContent = holdingCount ? formatMoney(totalHolding) + " U" : "—";
+      $("statBalance").textContent = balanceCount ? formatMoney(totalBalance) + " U" : "—";
+      $("statNetAsset").textContent = netCount ? formatMoney(totalNet) + " U" : "—";
+      const pct = state.totalWallets ? Math.round(state.completedWallets / state.totalWallets * 100) : 0;
+      $("progressBar").style.width = `${pct}%`;
+
+      const best = state.bestWallet ? state.summaryRows.find(r => r.wallet === state.bestWallet) : null;
+      const panel = $("bestPanel");
+      if (best) {
+        panel.hidden = false;
+        $("bestAddr").textContent = shortWallet(best.wallet); $("bestAddr").title = best.wallet; $("bestAddr").dataset.wallet = best.wallet;
+        $("bestPoints").textContent = formatTwoDecimal(best.points);
+        $("bestCost").textContent = shortDecimal(best.cost_usdt, 6);
+        $("bestCpp").textContent = formatCostPerPoint(best.cost_per_point);
+        $("bestHolding").textContent = best.holding_amount_usdt !== "" ? formatMoney(best.holding_amount_usdt) : "—";
+        $("bestBalance").textContent = best.available_balance_usdt !== "" ? formatMoney(best.available_balance_usdt) : "—";
+        $("bestNetAsset").textContent = best.net_asset_usdt !== "" ? formatMoney(best.net_asset_usdt) : "—";
+      } else panel.hidden = true;
+
+      const hasRows = state.detailRows.length > 0;
+      $("exportSummaryBtn").disabled = !hasRows; $("exportDetailBtn").disabled = !hasRows; $("copySummaryBtn").disabled = !hasRows; $("copyFilteredWalletsBtn").disabled = !state.summaryRows.length;
+    }
+
+    function updateFilterHint() {
+      const parts = [];
+      if (state.minPoints > 0) parts.push(`积分≥${state.minPoints}`);
+      if (state.minBalance > 0) parts.push(`余额≥${state.minBalance}`);
+      if (state.minHolding > 0) parts.push(`持仓≥${state.minHolding}`);
+      if (state.minNetAsset > 0) parts.push(`净资产≥${state.minNetAsset}`);
+      if (state.maxCpp > 0) parts.push(`积分成本≤${state.maxCpp}`);
+      if (state.onlyCalculated) parts.push("已结算");
+      $("filterHint").textContent = parts.length ? `启用中: ${parts.join(" / ")}` : "";
+    }
+
+    async function queryWallet(wallet, selectedWeeks) {
+      const [pointsRes, holdingRes, balanceRes] = await Promise.allSettled([
+        fetchWallet(wallet),
+        fetchPositionValue(wallet),
+        fetchUsdtBalance(wallet)
+      ]);
+      const holding = holdingRes.status === "fulfilled" ? holdingRes.value : { holding_amount_usdt: "", error: holdingRes.reason?.message || "持仓接口失败" };
+      const balance = balanceRes.status === "fulfilled" ? balanceRes.value : { available_balance_usdt: "", error: balanceRes.reason?.message || "余额查询失败" };
+      if (pointsRes.status !== "fulfilled") return [buildErrorDetailRow(wallet, pointsRes.reason?.message || "积分接口失败", holding, balance)];
+      return buildRows(wallet, pointsRes.value, selectedWeeks, holding, balance);
     }
 
     async function runQuery() {
       if (state.running) return;
-
       const wallets = extractWallets($("wallets").value);
-      if (!wallets.length) {
-        alert("没有识别到有效钱包地址");
-        return;
-      }
-
+      if (!wallets.length) { alert("没有识别到有效钱包地址"); return; }
       let selectedWeeks = null;
-      try {
-        selectedWeeks = parseWeeks($("weeks").value);
-      } catch (err) {
-        alert(err.message || String(err));
-        return;
-      }
-
-      let concurrency = Math.max(1, Math.min(50, Number($("concurrency").value || 5)));
-      concurrency = Math.min(concurrency, wallets.length);
-
-      state.abort = false;
-      state.running = true;
-      state.totalWallets = wallets.length;
-      state.completedWallets = 0;
-      state.successWallets = 0;
-      state.failedWallets = 0;
-      state.detailRows = [];
-      state.summaryRows = [];
-      summaryDirty = true;
-      state.startedAt = Date.now();
-
-      $("startBtn").disabled = true;
-      $("stopBtn").disabled = false;
-      setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}，份额查询：${shouldQueryShares() ? "开启" : "关闭"}`);
+      try { selectedWeeks = parseWeeks($("weeks").value); } catch (err) { alert(err.message || String(err)); return; }
+      let concurrency = Math.max(1, Math.min(30, Number($("concurrency").value || 5), wallets.length));
+      state.abort = false; state.running = true; state.totalWallets = wallets.length; state.completedWallets = 0; state.successWallets = 0; state.failedWallets = 0; state.detailRows = []; state.summaryRows = []; summaryDirty = true;
+      $("startBtn").disabled = true; $("stopBtn").disabled = false;
+      setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}，份额：${shouldQueryShares() ? "开" : "关"}，持仓：${shouldQueryHoldings() ? "开" : "关"}，余额：${shouldQueryBalance() ? "开" : "关"}`);
       renderAll();
-
       let cursor = 0;
-
-      async function worker(workerId) {
+      async function worker() {
         while (!state.abort) {
           const idx = cursor++;
           if (idx >= wallets.length) break;
-
           const wallet = wallets[idx];
           try {
             log(`查询中 ${idx + 1}/${wallets.length}: ${wallet}`);
-            const data = await fetchWallet(wallet);
-            const rows = await buildRows(wallet, data, selectedWeeks);
+            const rows = await queryWallet(wallet, selectedWeeks);
             state.detailRows.push(...rows);
-            state.successWallets += 1;
+            if (rows.some(r => r.status === "ok" || r.status === "week_not_found")) state.successWallets += 1;
+            else state.failedWallets += 1;
             log(`完成 ${idx + 1}/${wallets.length}: ${wallet}`);
           } catch (err) {
             const message = err && err.message ? err.message : String(err);
@@ -2494,655 +1248,93 @@
             state.failedWallets += 1;
             log(`失败 ${idx + 1}/${wallets.length}: ${wallet} | ${message}`);
           } finally {
-            state.completedWallets += 1;
-            summaryDirty = true;
-            scheduleRender();
+            state.completedWallets += 1; summaryDirty = true; renderAll();
           }
         }
       }
-
-      try {
-        await Promise.all(Array.from({ length: concurrency }, (_, i) => worker(i + 1)));
-      } finally {
-        state.running = false;
-        $("startBtn").disabled = false;
-        $("stopBtn").disabled = true;
-        const seconds = ((Date.now() - state.startedAt) / 1000).toFixed(1);
-        log(state.abort ? `已停止，用时 ${seconds}s` : `全部完成，用时 ${seconds}s`);
-        renderAll();
+      try { await Promise.all(Array.from({ length: concurrency }, worker)); }
+      finally {
+        state.running = false; $("startBtn").disabled = false; $("stopBtn").disabled = true;
+        log(state.abort ? "已停止。" : "全部完成。"); renderAll();
       }
     }
 
     function clearResults() {
-      state.abort = false;
-      state.running = false;
-      state.totalWallets = 0;
-      state.completedWallets = 0;
-      state.successWallets = 0;
-      state.failedWallets = 0;
-      state.detailRows = [];
-      state.summaryRows = [];
-      summaryDirty = true;
-      $("progressBar").style.width = "0%";
-      setLog("已清空结果。等待开始...");
-      renderAll();
+      state.abort = false; state.running = false; state.totalWallets = 0; state.completedWallets = 0; state.successWallets = 0; state.failedWallets = 0; state.detailRows = []; state.summaryRows = []; summaryDirty = true;
+      $("progressBar").style.width = "0%"; setLog("已清空结果。等待开始..."); renderAll();
     }
 
-    function csvEscape(value) {
-      const s = String(value ?? "");
-      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    }
-
-    function resolveExportValue(row, key) {
-      if (key === "actions") return "";
-      if (key === "tag") return state.walletTags[row.wallet] || "";
-      return row[key] ?? "";
-    }
-
-    function exportableColumns(columns) {
-      return columns.filter(([k]) => k !== "actions");
-    }
-
-    function triggerDownload(filename, blob) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-
+    function csvEscape(value) { const s = String(value ?? ""); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
     function downloadCsv(filename, rows, columns) {
       if (!rows.length) return;
-      const cols = exportableColumns(columns);
-      const header = cols.map(([, label]) => csvEscape(label)).join(",");
-      const lines = rows.map(row => cols.map(([key]) => csvEscape(resolveExportValue(row, key))).join(","));
-      const csv = "\ufeff" + [header, ...lines].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const header = columns.map(([, label]) => csvEscape(label)).join(",");
+      const lines = rows.map(row => columns.map(([key]) => csvEscape(row[key] ?? "")).join(","));
+      const blob = new Blob(["\ufeff" + [header, ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
 
     async function copySummary() {
       if (!state.summaryRows.length) return;
-      const cols = exportableColumns(summaryColumns);
-      const header = cols.map(([, label]) => label).join("\t");
-      const lines = state.summaryRows.map(row => cols.map(([key]) => resolveExportValue(row, key)).join("\t"));
-      const text = [header, ...lines].join("\n");
-      try {
-        await navigator.clipboard.writeText(text);
-        log("已复制汇总表，可直接粘贴到 Excel/Google Sheets。 ");
-      } catch (err) {
-        alert("复制失败，浏览器可能不允许剪贴板权限。可以改用导出 CSV。");
-      }
+      const header = summaryColumns.map(([, label]) => label).join("\t");
+      const lines = state.summaryRows.map(row => summaryColumns.map(([key]) => row[key] ?? "").join("\t"));
+      try { await navigator.clipboard.writeText([header, ...lines].join("\n")); log("已复制汇总表。 "); }
+      catch { alert("复制失败，浏览器可能不允许剪贴板权限。可以改用导出 CSV。"); }
     }
-
 
     async function copyFilteredWallets() {
       const rows = getSortedRows(state.summaryRows, "summary").sorted;
-      const seen = new Set();
-      const wallets = [];
-      for (const r of rows) {
-        const w = normalizeWalletKey(r.wallet);
-        if (!w || seen.has(w)) continue;
-        seen.add(w);
-        wallets.push(w);
-      }
+      const wallets = [...new Set(rows.map(r => String(r.wallet || "").toLowerCase()).filter(Boolean))];
       if (!wallets.length) return;
-      try {
-        await navigator.clipboard.writeText(wallets.join("\n"));
-        log(`已复制当前筛选后的 ${wallets.length} 个钱包地址。`);
-      } catch (err) {
-        alert("复制失败，浏览器可能不允许剪贴板权限。");
-      }
+      try { await navigator.clipboard.writeText(wallets.join("\n")); log(`已复制当前筛选后的 ${wallets.length} 个钱包地址。`); }
+      catch { alert("复制失败，浏览器可能不允许剪贴板权限。"); }
     }
 
     function fillSample() {
-      $("wallets").value = [
-        "0x1111111111111111111111111111111111111111",
-        "0x2222222222222222222222222222222222222222",
-        "0x3333333333333333333333333333333333333333"
-      ].join("\n");
+      $("wallets").value = ["0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"].join("\n");
       $("weeks").value = "17,18";
       setLog("已填入示例。把示例钱包替换成你自己的即可。 ");
     }
 
+    function readMinInput(el) { const raw = (el.value || "").trim(); const n = Number(raw); return raw && isFinite(n) && n > 0 ? n : 0; }
+
     document.querySelectorAll(".tab").forEach(tab => {
       tab.addEventListener("click", () => {
-        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        const name = tab.dataset.tab;
-        state.activeTab = name;
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active")); tab.classList.add("active");
+        const name = tab.dataset.tab; state.activeTab = name;
         $("summaryBox").style.display = name === "summary" ? "block" : "none";
         $("detailBox").style.display = name === "detail" ? "block" : "none";
         renderAll();
       });
     });
 
-    $("filterInput").addEventListener("input", (e) => {
-      state.filterText = e.target.value || "";
-      renderAll();
-    });
+    $("filterInput").addEventListener("input", e => { state.filterText = e.target.value || ""; renderAll(); });
+    $("onlyCalculated").addEventListener("change", e => { state.onlyCalculated = e.target.checked; renderAll(); });
+    $("minPoints").addEventListener("input", e => { state.minPoints = readMinInput(e.target); renderAll(); });
+    $("minBalance").addEventListener("input", e => { state.minBalance = readMinInput(e.target); renderAll(); });
+    $("minHolding").addEventListener("input", e => { state.minHolding = readMinInput(e.target); renderAll(); });
+    $("minNetAsset").addEventListener("input", e => { state.minNetAsset = readMinInput(e.target); renderAll(); });
+    $("maxCpp").addEventListener("input", e => { state.maxCpp = readMinInput(e.target); renderAll(); });
+    $("sortPresetSelect").addEventListener("change", e => { const [key, dir] = String(e.target.value || "cost_per_point:asc").split(":"); state.sort.summary = { key, dir: dir === "asc" ? "asc" : "desc" }; renderAll(); });
+    $("quickBestBtn").addEventListener("click", () => { state.minPoints = 10000; state.maxCpp = 0.00005; state.onlyCalculated = true; $("minPoints").value = "10000"; $("maxCpp").value = "0.00005"; $("onlyCalculated").checked = true; state.sort.summary = { key: "cost_per_point", dir: "asc" }; renderAll(); });
+    $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.minNetAsset = state.maxCpp = 0; state.onlyCalculated = false; ["minPoints","minBalance","minHolding","minNetAsset","maxCpp"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
 
-    $("onlyCalculated").addEventListener("change", (e) => {
-      state.onlyCalculated = e.target.checked;
-      renderAll();
-    });
-
-    function readMinInput(el) {
-      const raw = (el.value || "").trim();
-      if (!raw) return 0;
-      const n = Number(raw);
-      return isFinite(n) && n > 0 ? n : 0;
-    }
-
-    $("minPoints").addEventListener("input", (e) => {
-      state.minPoints = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("minVolume").addEventListener("input", (e) => {
-      state.minVolume = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("minTrades").addEventListener("input", (e) => {
-      state.minTrades = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("maxCpp").addEventListener("input", (e) => {
-      state.maxCpp = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("maxTotalVolumePerPoint").addEventListener("input", (e) => {
-      state.maxTotalVolumePerPoint = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("maxPaidVolumePerPoint").addEventListener("input", (e) => {
-      state.maxPaidVolumePerPoint = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("maxSharesPerPoint").addEventListener("input", (e) => {
-      state.maxSharesPerPoint = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("minCost").addEventListener("input", (e) => {
-      state.minCost = readMinInput(e.target);
-      renderAll();
-    });
-
-    $("onlyZeroReferral").addEventListener("change", (e) => {
-      state.onlyZeroReferral = e.target.checked;
-      renderAll();
-    });
-
-
-    $("excludeLowSample").addEventListener("change", (e) => {
-      state.excludeLowSample = e.target.checked;
-      renderAll();
-    });
-
-    $("topNSelect").addEventListener("change", (e) => {
-      state.topN = readMinInput(e.target);
-      renderAll();
-    });
-
-    function applySortPreset(value) {
-      const [key, dir] = String(value || "cost_per_point:asc").split(":");
-      state.sort.summary = { key, dir: dir === "asc" ? "asc" : "desc" };
-      renderAll();
-    }
-
-    $("sortPresetSelect").addEventListener("change", (e) => applySortPreset(e.target.value));
-
-    $("highlightModeSelect").addEventListener("change", (e) => {
-      state.highlightMode = e.target.value || "cost_per_point";
-      renderAll();
-    });
-
-    $("quickBestBtn").addEventListener("click", () => {
-      state.minPoints = 10000;
-      state.minVolume = 0;
-      state.minTrades = 10;
-      state.maxCpp = 0.00005;
-      state.maxTotalVolumePerPoint = 0;
-      state.maxPaidVolumePerPoint = 0;
-      state.maxSharesPerPoint = 0;
-      state.minCost = 0;
-      state.onlyZeroReferral = true;
-      state.excludeLowSample = true;
-      state.onlyCalculated = true;
-      state.topN = 20;
-      state.sort.summary = { key: "cost_per_point", dir: "asc" };
-      state.highlightMode = "cost_per_point";
-      $("minPoints").value = "10000";
-      $("minVolume").value = "";
-      $("minTrades").value = "10";
-      $("maxCpp").value = "0.00005";
-      $("maxTotalVolumePerPoint").value = "";
-      $("maxPaidVolumePerPoint").value = "";
-      $("maxSharesPerPoint").value = "";
-      $("minCost").value = "";
-      $("onlyZeroReferral").checked = true;
-      $("excludeLowSample").checked = true;
-      $("onlyCalculated").checked = true;
-      $("topNSelect").value = "20";
-      $("sortPresetSelect").value = "cost_per_point:asc";
-      $("highlightModeSelect").value = "cost_per_point";
-      renderAll();
-    });
-
-    $("resetFiltersBtn").addEventListener("click", () => {
-      state.minPoints = 0;
-      state.minVolume = 0;
-      state.minTrades = 0;
-      state.maxCpp = 0;
-      state.maxTotalVolumePerPoint = 0;
-      state.maxPaidVolumePerPoint = 0;
-      state.maxSharesPerPoint = 0;
-      state.minCost = 0;
-      state.onlyZeroReferral = false;
-      state.excludeLowSample = false;
-      state.onlyCalculated = false;
-      state.topN = 0;
-      $("minPoints").value = "";
-      $("minVolume").value = "";
-      $("minTrades").value = "";
-      $("maxCpp").value = "";
-      $("maxTotalVolumePerPoint").value = "";
-      $("maxPaidVolumePerPoint").value = "";
-      $("maxSharesPerPoint").value = "";
-      $("minCost").value = "";
-      $("onlyZeroReferral").checked = false;
-      $("excludeLowSample").checked = false;
-      $("onlyCalculated").checked = false;
-      $("topNSelect").value = "0";
-      renderAll();
-    });
-
-    $("bestCopyBtn").addEventListener("click", async () => {
-      const bestAddrEl = $("bestAddr");
-      const addr = bestAddrEl.dataset.wallet || bestAddrEl.textContent || "";
-      if (!addr || addr === "-") return;
-      try {
-        await navigator.clipboard.writeText(addr);
-        const btn = $("bestCopyBtn");
-        const old = btn.textContent;
-        btn.textContent = "已复制";
-        setTimeout(() => { btn.textContent = old; }, 1200);
-      } catch {}
-    });
-
-    function setupWalletCopyDelegation(boxId) {
-      $(boxId).addEventListener("click", async (e) => {
-        const btn = e.target.closest(".copyBtn");
-        if (!btn) return;
-        const wallet = btn.dataset.wallet;
-        if (!wallet) return;
-        e.stopPropagation();
-        e.preventDefault();
-        try {
-          await navigator.clipboard.writeText(wallet);
-          btn.textContent = "已复制";
-          setTimeout(() => { btn.textContent = "复制"; }, 1200);
-        } catch { btn.textContent = "失败"; }
+    $("bestCopyBtn").addEventListener("click", async () => { const addr = $("bestAddr").dataset.wallet || ""; if (!addr) return; try { await navigator.clipboard.writeText(addr); } catch {} });
+    ["summaryBox", "detailBox"].forEach(boxId => {
+      $(boxId).addEventListener("click", async e => {
+        const btn = e.target.closest(".copyBtn"); if (!btn) return;
+        const wallet = btn.dataset.wallet; if (!wallet) return;
+        e.preventDefault(); e.stopPropagation();
+        try { await navigator.clipboard.writeText(wallet); btn.textContent = "已复制"; setTimeout(() => btn.textContent = "复制", 1200); }
+        catch { btn.textContent = "失败"; }
       });
-    }
-    setupWalletCopyDelegation("summaryBox");
-    setupWalletCopyDelegation("detailBox");
-
-    // ---- 选项1 钱包清单保存/切换 ----
-    function rebuildWalletListSelect() {
-      const sel = $("walletListSelect");
-      const prev = sel.value;
-      sel.innerHTML = '<option value="">— 选择 —</option>';
-      const names = Object.keys(state.walletLists).sort();
-      for (const name of names) {
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = `${name}（${extractWallets(state.walletLists[name]).length}）`;
-        sel.appendChild(opt);
-      }
-      if (prev && names.includes(prev)) sel.value = prev;
-      const has = !!sel.value && names.includes(sel.value);
-      $("walletListLoadBtn").disabled = !has;
-      $("walletListDeleteBtn").disabled = !has;
-      $("walletListHint").textContent = names.length ? "" : "还没有保存过清单。";
-    }
-
-    $("walletListSelect").addEventListener("change", () => {
-      const has = !!$("walletListSelect").value;
-      $("walletListLoadBtn").disabled = !has;
-      $("walletListDeleteBtn").disabled = !has;
-    });
-
-    $("walletListLoadBtn").addEventListener("click", () => {
-      const name = $("walletListSelect").value;
-      if (!name || state.walletLists[name] == null) return;
-      $("wallets").value = state.walletLists[name];
-      log(`已载入清单：${name}`);
-    });
-
-    $("walletListSaveBtn").addEventListener("click", () => {
-      const name = (prompt("清单名称：") || "").trim();
-      if (!name) return;
-      if (state.walletLists[name] != null && !confirm(`已存在"${name}"，覆盖？`)) return;
-      state.walletLists[name] = $("wallets").value;
-      saveLocal(STORAGE_KEYS.lists, state.walletLists);
-      rebuildWalletListSelect();
-      $("walletListSelect").value = name;
-      $("walletListSelect").dispatchEvent(new Event("change"));
-      log(`已保存清单：${name}`);
-    });
-
-    $("walletListDeleteBtn").addEventListener("click", () => {
-      const name = $("walletListSelect").value;
-      if (!name || state.walletLists[name] == null) return;
-      if (!confirm(`删除清单"${name}"？`)) return;
-      delete state.walletLists[name];
-      saveLocal(STORAGE_KEYS.lists, state.walletLists);
-      rebuildWalletListSelect();
-      $("walletListSelect").dispatchEvent(new Event("change"));
-    });
-
-    // ---- 选项2 CSV/TXT 拖拽导入 ----
-    (function setupDragDrop() {
-      const dz = $("walletsDrop");
-      const ta = $("wallets");
-      const prevent = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
-      ["dragenter", "dragover"].forEach(e => dz.addEventListener(e, (ev) => {
-        prevent(ev);
-        dz.classList.add("dragover");
-      }));
-      ["dragleave", "drop"].forEach(e => dz.addEventListener(e, (ev) => {
-        prevent(ev);
-        dz.classList.remove("dragover");
-      }));
-      dz.addEventListener("drop", async (ev) => {
-        const files = ev.dataTransfer && ev.dataTransfer.files ? [...ev.dataTransfer.files] : [];
-        if (!files.length) return;
-        let combined = "";
-        for (const f of files) {
-          try {
-            const text = await f.text();
-            combined += "\n" + text;
-          } catch (err) {
-            log(`读取 ${f.name} 失败：${err.message || err}`);
-          }
-        }
-        const walletsFromFile = extractWallets(combined);
-        if (!walletsFromFile.length) { log("文件里没找到有效 0x 地址"); return; }
-        const existing = extractWallets(ta.value);
-        const union = [...new Set([...existing, ...walletsFromFile])];
-        ta.value = union.join("\n");
-        log(`从 ${files.length} 个文件提取 ${walletsFromFile.length} 个地址，合并后共 ${union.length} 个`);
-      });
-    })();
-
-    // ---- 选项3 按钱包标签（事件委托）----
-    function setupTagDelegation(boxId) {
-      const box = $(boxId);
-      box.addEventListener("change", (e) => {
-        const input = e.target;
-        if (!input.classList || !input.classList.contains("tagInput")) return;
-        const wallet = input.dataset.wallet;
-        if (!wallet) return;
-        const v = (input.value || "").trim();
-        if (v) state.walletTags[wallet] = v;
-        else delete state.walletTags[wallet];
-        saveLocal(STORAGE_KEYS.tags, state.walletTags);
-      });
-      box.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && e.target.classList && e.target.classList.contains("tagInput")) {
-          e.preventDefault();
-          e.target.blur();
-        }
-      });
-    }
-    setupTagDelegation("summaryBox");
-    setupTagDelegation("detailBox");
-
-    // ---- 选项4 失败行单独重试（事件委托）----
-    async function retryWallet(wallet) {
-      if (!wallet) return;
-      let weeks = null;
-      try { weeks = parseWeeks($("weeks").value); } catch { weeks = null; }
-      if (!state.running) state.abort = false;
-      state.detailRows = state.detailRows.filter(r => r.wallet !== wallet);
-      summaryDirty = true;
-      scheduleRender();
-      try {
-        log(`重试: ${wallet}`);
-        const data = await fetchWallet(wallet);
-        const rows = await buildRows(wallet, data, weeks);
-        state.detailRows.push(...rows);
-        log(`重试完成: ${wallet}`);
-      } catch (err) {
-        const message = err && err.message ? err.message : String(err);
-        state.detailRows.push(buildErrorDetailRow(wallet, message));
-        log(`重试失败: ${wallet} | ${message}`);
-      }
-      summaryDirty = true;
-      scheduleRender();
-    }
-
-    function setupRetryDelegation(boxId) {
-      $(boxId).addEventListener("click", (e) => {
-        const btn = e.target.closest(".actionBtn");
-        if (!btn) return;
-        const wallet = btn.dataset.retryWallet;
-        if (!wallet || btn.disabled) return;
-        e.preventDefault();
-        e.stopPropagation();
-        btn.disabled = true;
-        btn.textContent = "…";
-        retryWallet(wallet);
-      });
-    }
-    setupRetryDelegation("summaryBox");
-    setupRetryDelegation("detailBox");
-
-    // ---- 选项5 URL 参数持久化 ----
-    const URL_PARAMS = [
-      ["weeks", "w"],
-      ["concurrency", "c"],
-      ["retries", "r"],
-      ["timeoutMs", "t"],
-      ["pointsMultiplier", "pm"],
-      ["feeMultiplier", "fm"],
-      ["maxQps", "q"],
-      ["apiTemplate", "api"],
-      ["tradesApiTemplate", "trapi"],
-      ["proxyPrefix", "px"],
-      ["minPoints", "mp"],
-      ["minVolume", "mv"],
-      ["minTrades", "mt"],
-      ["maxCpp", "mc"],
-      ["maxTotalVolumePerPoint", "tvp"],
-      ["maxPaidVolumePerPoint", "pvp"],
-      ["maxSharesPerPoint", "svp"],
-      ["minCost", "mcu"],
-    ];
-
-    function loadUrlParams() {
-      try {
-        const url = new URL(location.href);
-        for (const [id, key] of URL_PARAMS) {
-          const v = url.searchParams.get(key);
-          const el = $(id);
-          if (v !== null && el) el.value = v;
-        }
-        state.minPoints = readMinInput($("minPoints"));
-        state.minVolume = readMinInput($("minVolume"));
-        state.minTrades = readMinInput($("minTrades"));
-        state.maxCpp = readMinInput($("maxCpp"));
-        state.maxTotalVolumePerPoint = readMinInput($("maxTotalVolumePerPoint"));
-        state.maxPaidVolumePerPoint = readMinInput($("maxPaidVolumePerPoint"));
-        state.maxSharesPerPoint = readMinInput($("maxSharesPerPoint"));
-        state.minCost = readMinInput($("minCost"));
-      } catch {}
-    }
-
-    let urlSyncTimer = 0;
-    function syncUrlParams() {
-      clearTimeout(urlSyncTimer);
-      urlSyncTimer = setTimeout(() => {
-        try {
-          const url = new URL(location.href);
-          for (const [id, key] of URL_PARAMS) {
-            const el = $(id);
-            if (!el) continue;
-            const v = (el.value || "").trim();
-            if (v) url.searchParams.set(key, v);
-            else url.searchParams.delete(key);
-          }
-          history.replaceState(null, "", url);
-        } catch {}
-      }, 300);
-    }
-
-    for (const [id] of URL_PARAMS) {
-      const el = $(id);
-      if (el) el.addEventListener("input", syncUrlParams);
-    }
-
-    // ---- 选项6 历史快照对比 ----
-    function rebuildSnapshotSelect() {
-      const sel = $("snapshotSelect");
-      const current = state.activeSnapshotId;
-      sel.innerHTML = '<option value="">— 无对比 —</option>';
-      for (const s of state.snapshots) {
-        const opt = document.createElement("option");
-        opt.value = s.id;
-        opt.textContent = `${s.label}（${s.rows.length}）`;
-        sel.appendChild(opt);
-      }
-      if (current && state.snapshots.some(s => s.id === current)) {
-        sel.value = current;
-      } else {
-        state.activeSnapshotId = "";
-        sel.value = "";
-      }
-      $("exportDeltaBtn").disabled = !state.activeSnapshotId || !state.summaryRows.length;
-    }
-
-    $("saveSnapshotBtn").addEventListener("click", () => {
-      if (!state.summaryRows.length) return;
-      const ts = Date.now();
-      const snap = {
-        id: `s${ts}`,
-        ts,
-        label: new Date(ts).toLocaleString(),
-        rows: state.summaryRows.map(r => ({
-          wallet: r.wallet,
-          points: r.points || "0",
-          cost_usdt: r.cost_usdt || "0",
-          total_volume_usdt: r.total_volume_usdt || "0",
-          total_volume_shares: r.total_volume_shares || "0",
-          trade_count: r.trade_count || "0",
-        })),
-      };
-      state.snapshots = [snap, ...state.snapshots].slice(0, MAX_SNAPSHOTS);
-      saveLocal(STORAGE_KEYS.snapshots, state.snapshots);
-      rebuildSnapshotSelect();
-      log(`已保存快照：${snap.label}（${snap.rows.length} 个钱包）`);
-    });
-
-    $("snapshotSelect").addEventListener("change", (e) => {
-      state.activeSnapshotId = e.target.value || "";
-      $("exportDeltaBtn").disabled = !state.activeSnapshotId || !state.summaryRows.length;
-      summaryDirty = true;
-      renderAll();
-    });
-
-    $("exportDeltaBtn").addEventListener("click", () => {
-      const snap = state.snapshots.find(s => s.id === state.activeSnapshotId);
-      if (!snap) return;
-      const baseMap = new Map(snap.rows.map(r => [r.wallet, r]));
-      const header = ["钱包","标签","当前积分","对比积分","Δ积分","当前手续费","对比手续费","Δ手续费","新增积分成本","当前总交易量","对比总交易量","Δ交易量","当前份额","对比份额","Δ份额","当前交易次数","对比交易次数","Δ次数"];
-      const lines = [header.map(csvEscape).join(",")];
-      for (const r of state.summaryRows) {
-        const base = baseMap.get(r.wallet) || {};
-        const cells = [
-          r.wallet,
-          state.walletTags[r.wallet] || "",
-          r.points || "0", base.points || "0", decimalSub(r.points || "0", base.points || "0"),
-          r.cost_usdt || "0", base.cost_usdt || "0", decimalSub(r.cost_usdt || "0", base.cost_usdt || "0"),
-          computeCostPerPoint(decimalSub(r.points || "0", base.points || "0"), decimalSub(r.cost_usdt || "0", base.cost_usdt || "0")),
-          r.total_volume_usdt || "0", base.total_volume_usdt || "0", decimalSub(r.total_volume_usdt || "0", base.total_volume_usdt || "0"),
-          r.total_volume_shares || "0", base.total_volume_shares || "0", decimalSub(r.total_volume_shares || "0", base.total_volume_shares || "0"),
-          r.trade_count || "0", base.trade_count || "0", decimalSub(r.trade_count || "0", base.trade_count || "0"),
-        ];
-        lines.push(cells.map(csvEscape).join(","));
-      }
-      const csv = "\ufeff" + lines.join("\n");
-      triggerDownload(`opinx_delta_${snap.id}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      log(`已导出变化对比：基准 ${snap.label}`);
-    });
-
-    // ---- 清除已看 ----
-    $("clearVisitedBtn").addEventListener("click", () => {
-      if (!confirm("清除所有已看标记？")) return;
-      state.visitedWallets = new Set();
-      saveVisitedWallets();
-      scheduleRender();
-      log("已清除所有已看标记。");
-    });
-
-    // ---- 清除本地数据 ----
-    $("clearLocalBtn").addEventListener("click", () => {
-      if (!confirm("清除本地的钱包清单、标签、快照、已看记录？此操作不可撤销。")) return;
-      state.walletTags = {};
-      state.walletLists = {};
-      state.snapshots = [];
-      state.activeSnapshotId = "";
-      state.visitedWallets = new Set();
-      try {
-        localStorage.removeItem(STORAGE_KEYS.tags);
-        localStorage.removeItem(STORAGE_KEYS.lists);
-        localStorage.removeItem(STORAGE_KEYS.snapshots);
-        localStorage.removeItem(STORAGE_KEYS.visited);
-      } catch {}
-      rebuildWalletListSelect();
-      rebuildSnapshotSelect();
-      scheduleRender();
-      log("已清除本地数据。");
-    });
-
-    // ---- 初始化 ----
-    state.walletTags = loadLocal(STORAGE_KEYS.tags, {}) || {};
-    state.walletLists = loadLocal(STORAGE_KEYS.lists, {}) || {};
-    state.snapshots = loadLocal(STORAGE_KEYS.snapshots, []) || [];
-    state.visitedWallets = loadVisitedWallets();
-    loadUrlParams();
-    rebuildWalletListSelect();
-    rebuildSnapshotSelect();
-
-    window.addEventListener("pageshow", () => {
-      state.visitedWallets = loadVisitedWallets();
-      scheduleRender();
     });
 
     $("startBtn").addEventListener("click", runQuery);
     $("stopBtn").addEventListener("click", () => { state.abort = true; log("正在停止，已发出的请求会等待返回..."); });
     $("clearBtn").addEventListener("click", clearResults);
     $("sampleBtn").addEventListener("click", fillSample);
-    $("exportSummaryBtn").addEventListener("click", () => downloadCsv("opinx_summary.csv", state.summaryRows, summaryColumns));
-    $("exportDetailBtn").addEventListener("click", () => downloadCsv("opinx_detail.csv", state.detailRows, detailColumns));
+    $("exportSummaryBtn").addEventListener("click", () => downloadCsv("opinx_summary_with_assets.csv", state.summaryRows, summaryColumns));
+    $("exportDetailBtn").addEventListener("click", () => downloadCsv("opinx_detail_with_assets.csv", state.detailRows, detailColumns));
     $("copySummaryBtn").addEventListener("click", copySummary);
     $("copyFilteredWalletsBtn").addEventListener("click", copyFilteredWallets);
 
