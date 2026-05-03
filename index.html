@@ -309,7 +309,10 @@ https://bsc.drpc.org</textarea>
       <div class="control-group"><label for="minPoints">积分 ≥</label><input id="minPoints" type="number" min="0" step="any" placeholder="0" /></div>
       <div class="control-group"><label for="minBalance">余额 ≥</label><input id="minBalance" type="number" min="0" step="any" placeholder="0" /></div>
       <div class="control-group"><label for="minHolding">持仓 ≥</label><input id="minHolding" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="maxHolding">持仓 ≤</label><input id="maxHolding" type="number" min="0" step="any" placeholder="0" /></div>
       <div class="control-group"><label for="minNetAsset">净资产 ≥</label><input id="minNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="maxNetAsset">净资产 ≤</label><input id="maxNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="maxReferralPoints">推荐积分 ≤</label><input id="maxReferralPoints" type="number" min="0" step="any" placeholder="0" /></div>
       <div class="control-group"><label for="maxCpp">积分成本 ≤</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
       <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
       <button id="resetFiltersBtn" class="secondary" type="button">重置筛选</button>
@@ -359,7 +362,10 @@ https://bsc.drpc.org</textarea>
       minPoints: 0,
       minBalance: 0,
       minHolding: 0,
+      maxHolding: 0,
       minNetAsset: 0,
+      maxNetAsset: 0,
+      maxReferralPoints: 0,
       maxCpp: 0,
       sort: {
         summary: { key: "cost_per_point", dir: "asc" },
@@ -1012,7 +1018,10 @@ https://bsc.drpc.org</textarea>
       if (state.minPoints > 0) result = result.filter(r => num(r.points) >= state.minPoints);
       if (state.minBalance > 0) result = result.filter(r => num(r.available_balance_usdt) >= state.minBalance);
       if (state.minHolding > 0) result = result.filter(r => num(r.holding_amount_usdt) >= state.minHolding);
+      if (state.maxHolding > 0) result = result.filter(r => num(r.holding_amount_usdt) <= state.maxHolding);
       if (state.minNetAsset > 0) result = result.filter(r => num(r.net_asset_usdt) >= state.minNetAsset);
+      if (state.maxNetAsset > 0) result = result.filter(r => num(r.net_asset_usdt) <= state.maxNetAsset);
+      if (state.maxReferralPoints > 0) result = result.filter(r => num(r.referral_points) <= state.maxReferralPoints);
       if (state.maxCpp > 0) result = result.filter(r => isValidCpp(r.cost_per_point) && Number(r.cost_per_point) <= state.maxCpp);
       const q = state.filterText.trim().toLowerCase();
       if (!q) return result;
@@ -1264,7 +1273,10 @@ https://bsc.drpc.org</textarea>
       if (state.minPoints > 0) parts.push(`积分≥${state.minPoints}`);
       if (state.minBalance > 0) parts.push(`余额≥${state.minBalance}`);
       if (state.minHolding > 0) parts.push(`持仓≥${state.minHolding}`);
+      if (state.maxHolding > 0) parts.push(`持仓≤${state.maxHolding}`);
       if (state.minNetAsset > 0) parts.push(`净资产≥${state.minNetAsset}`);
+      if (state.maxNetAsset > 0) parts.push(`净资产≤${state.maxNetAsset}`);
+      if (state.maxReferralPoints > 0) parts.push(`推荐积分≤${state.maxReferralPoints}`);
       if (state.maxCpp > 0) parts.push(`积分成本≤${state.maxCpp}`);
       if (state.onlyCalculated) parts.push("已结算");
       $("filterHint").textContent = parts.length ? `启用中: ${parts.join(" / ")}` : "";
@@ -1378,11 +1390,14 @@ https://bsc.drpc.org</textarea>
     $("minPoints").addEventListener("input", e => { state.minPoints = readMinInput(e.target); renderAll(); });
     $("minBalance").addEventListener("input", e => { state.minBalance = readMinInput(e.target); renderAll(); });
     $("minHolding").addEventListener("input", e => { state.minHolding = readMinInput(e.target); renderAll(); });
+    $("maxHolding").addEventListener("input", e => { state.maxHolding = readMinInput(e.target); renderAll(); });
     $("minNetAsset").addEventListener("input", e => { state.minNetAsset = readMinInput(e.target); renderAll(); });
+    $("maxNetAsset").addEventListener("input", e => { state.maxNetAsset = readMinInput(e.target); renderAll(); });
+    $("maxReferralPoints").addEventListener("input", e => { state.maxReferralPoints = readMinInput(e.target); renderAll(); });
     $("maxCpp").addEventListener("input", e => { state.maxCpp = readMinInput(e.target); renderAll(); });
     $("sortPresetSelect").addEventListener("change", e => { const [key, dir] = String(e.target.value || "cost_per_point:asc").split(":"); state.sort.summary = { key, dir: dir === "asc" ? "asc" : "desc" }; renderAll(); });
     $("quickBestBtn").addEventListener("click", () => { state.minPoints = 10000; state.maxCpp = 0.00005; state.onlyCalculated = true; $("minPoints").value = "10000"; $("maxCpp").value = "0.00005"; $("onlyCalculated").checked = true; state.sort.summary = { key: "cost_per_point", dir: "asc" }; renderAll(); });
-    $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.minNetAsset = state.maxCpp = 0; state.onlyCalculated = false; ["minPoints","minBalance","minHolding","minNetAsset","maxCpp"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
+    $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.maxHolding = state.minNetAsset = state.maxNetAsset = state.maxReferralPoints = state.maxCpp = 0; state.onlyCalculated = false; ["minPoints","minBalance","minHolding","maxHolding","minNetAsset","maxNetAsset","maxReferralPoints","maxCpp"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
 
     $("bestCopyBtn").addEventListener("click", async () => { const addr = $("bestAddr").dataset.wallet || ""; if (!addr) return; try { await navigator.clipboard.writeText(addr); } catch {} });
     ["summaryBox", "detailBox"].forEach(boxId => {
