@@ -172,6 +172,7 @@
       <button id="clearBtn" class="secondary">清空结果</button>
       <button id="stopBtn" class="bad" disabled>停止</button>
       <label class="checkbox"><input id="onlyCalculated" type="checkbox" />只显示已结算的周</label>
+      <label class="checkbox"><input id="liveRender" type="checkbox" checked />查询时刷新表格</label>
     </div>
 
     <div class="progress-line">
@@ -214,7 +215,7 @@
 
     <div class="progressOuter"><div id="progressBar" class="progressInner"></div></div>
 
-    <details class="advanced" open>
+    <details class="advanced">
       <summary>高级配置（API、代理、并发、倍率、持仓与余额）</summary>
       <div class="row-grid">
         <div>
@@ -305,15 +306,18 @@ https://bsc.drpc.org</textarea>
     </div>
 
     <div class="filter-bar">
-      <span class="filter-label">筛选：</span>
-      <div class="control-group"><label for="minPoints">积分 ≥</label><input id="minPoints" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="minBalance">余额 ≥</label><input id="minBalance" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="minHolding">持仓 ≥</label><input id="minHolding" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="maxHolding">持仓 ≤</label><input id="maxHolding" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="minNetAsset">净资产 ≥</label><input id="minNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="maxNetAsset">净资产 ≤</label><input id="maxNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="maxReferralPoints">推荐积分 ≤</label><input id="maxReferralPoints" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="maxCpp">积分成本 ≤</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
+      <span class="filter-label">下限 ≥：</span>
+      <div class="control-group"><label for="minPoints">积分</label><input id="minPoints" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="minBalance">余额</label><input id="minBalance" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="minHolding">持仓</label><input id="minHolding" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="minNetAsset">净资产</label><input id="minNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">上限 ≤：</span>
+      <div class="control-group"><label for="maxHolding">持仓</label><input id="maxHolding" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="maxNetAsset">净资产</label><input id="maxNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="maxReferralPoints">推荐积分</label><input id="maxReferralPoints" type="number" min="0" step="any" placeholder="0" /></div>
+      <div class="control-group"><label for="maxCpp">积分成本</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
       <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
       <button id="resetFiltersBtn" class="secondary" type="button">重置筛选</button>
       <span class="muted" id="filterHint"></span>
@@ -1326,7 +1330,7 @@ https://bsc.drpc.org</textarea>
           } finally {
             state.completedWallets += 1;
             updateProgressOnly();
-            scheduleRender();
+            if ($("liveRender").checked) scheduleRender();
           }
         }
       }
