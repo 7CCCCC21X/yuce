@@ -182,6 +182,8 @@
       <span class="sep">|</span>
       <span class="label">汇总积分 Σ:</span><span id="statPoints">0</span>
       <span class="sep">|</span>
+      <span class="label">汇总总积分</span><span id="statTotalPoints">0</span>
+      <span class="sep">|</span>
       <span class="label">汇总手续费</span><span id="statCost">0 U</span>
       <span class="sep">|</span>
       <span class="label">整体积分成本</span><span id="statOverallCpp" class="hot">—</span><span class="muted"> /积分</span>
@@ -1236,17 +1238,20 @@ https://bsc.drpc.org</textarea>
         if (r.calculated === "true") calculated += 1; else if (r.calculated === "false") uncalculated += 1;
       }
       let totalHolding = "0", holdingCount = 0, totalBalance = "0", balanceCount = 0, totalNet = "0", netCount = 0;
+      let totalTotalPoints = "0", totalPointsCount = 0;
       for (const r of state.summaryRows) {
         if (r.status !== "ok") continue;
         if (r.holding_amount_usdt !== "" && r.holding_amount_usdt !== undefined && r.holding_amount_usdt !== null) { totalHolding = decimalAdd(totalHolding, r.holding_amount_usdt || "0"); holdingCount += 1; }
         if (r.available_balance_usdt !== "" && r.available_balance_usdt !== undefined && r.available_balance_usdt !== null) { totalBalance = decimalAdd(totalBalance, r.available_balance_usdt || "0"); balanceCount += 1; }
         if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet = decimalAdd(totalNet, r.net_asset_usdt || "0"); netCount += 1; }
+        if (r.total_points !== "" && r.total_points !== undefined && r.total_points !== null) { totalTotalPoints = decimalAdd(totalTotalPoints, r.total_points || "0"); totalPointsCount += 1; }
       }
       $("statVolume").textContent = formatMoney(totalVolume);
       $("statShares").textContent = sharesCount ? formatMoney(totalShares) : "—";
       $("statCost").textContent = shortDecimal(totalCost, 6) + " U";
       $("statTrades").textContent = totalTrades;
       $("statPoints").textContent = formatTwoDecimal(totalPoints);
+      $("statTotalPoints").textContent = totalPointsCount ? formatTwoDecimal(totalTotalPoints) : "0";
       $("statCalcSplit").textContent = `${calculated} / ${uncalculated}`;
       $("statOverallCpp").textContent = formatCostPerPoint(computeCostPerPoint(totalPoints, totalCost));
       $("statHolding").textContent = holdingCount ? formatMoney(totalHolding) + " U" : "—";
