@@ -891,6 +891,15 @@ https://bsc.drpc.org</textarea>
       const assets = assetFields(holdingResult, balanceResult);
       const assetError = joinErrors(holdingResult && holdingResult.error, balanceResult && balanceResult.error);
       for (const w of weeks) weekMap.set(Number(w.week), w);
+      try {
+        if (weekMap.size) {
+          const maxW = Math.max(...weekMap.keys());
+          if (Number.isFinite(maxW)) {
+            const saved = Number(localStorage.getItem("yuce.latestWeek") || "0");
+            if (maxW > saved) localStorage.setItem("yuce.latestWeek", String(maxW));
+          }
+        }
+      } catch {}
       const targetWeeks = selectedWeeks === null ? [...weekMap.keys()].sort((a, b) => a - b) : selectedWeeks;
 
       for (const weekNo of targetWeeks) {
@@ -1427,6 +1436,25 @@ https://bsc.drpc.org</textarea>
     $("exportDetailBtn").addEventListener("click", () => downloadCsv("opinx_detail_with_assets.csv", state.detailRows, detailColumns));
     $("copySummaryBtn").addEventListener("click", copySummary);
     $("copyFilteredWalletsBtn").addEventListener("click", copyFilteredWallets);
+
+    const WEEK_ANCHOR_START_TS = 1765893600;
+    const WEEK_SECONDS = 604800;
+    function currentWeekNumber() {
+      const now = Math.floor(Date.now() / 1000);
+      return Math.max(1, Math.floor((now - WEEK_ANCHOR_START_TS) / WEEK_SECONDS) + 1);
+    }
+    function applyDefaultWeek() {
+      const el = $("weeks");
+      if (!el) return;
+      let week = currentWeekNumber();
+      try {
+        const saved = Number(localStorage.getItem("yuce.latestWeek") || "0");
+        if (Number.isFinite(saved) && saved > week) week = saved;
+      } catch {}
+      el.value = String(week);
+      el.placeholder = `${week} / ${Math.max(1, week - 1)},${week} / 1-${week}`;
+    }
+    applyDefaultWeek();
 
     renderAll();
   </script>
