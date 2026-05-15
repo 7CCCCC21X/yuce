@@ -31,6 +31,9 @@
     .wrap { max-width: 1500px; margin: 0 auto; padding: 22px 26px 40px; }
     h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; letter-spacing: .2px; }
     .subtitle { color: var(--muted); margin-bottom: 14px; font-size: 13px; }
+    .section { margin: 18px 0 0; }
+    .section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+    .section-title .section-line { flex: 1; height: 1px; background: var(--line); }
     label { display: inline-block; margin: 0 6px 0 0; color: var(--text); font-size: 13px; font-weight: 600; }
     textarea, input[type="text"], input[type="password"], input[type="number"], input[type="search"], select {
       color: var(--text);
@@ -90,11 +93,33 @@
     button:disabled { opacity: .5; cursor: not-allowed; }
     .checkbox { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; user-select: none; }
     .checkbox input { accent-color: var(--accent); }
-    .progress-line { margin: 10px 0; font-size: 13px; color: var(--text); line-height: 1.9; }
-    .progress-line .label { font-weight: 700; margin-right: 4px; }
-    .progress-line .sep { color: var(--line-strong); margin: 0 10px; }
-    .progressOuter { height: 4px; overflow: hidden; background: var(--line); margin: 6px 0 10px; border-radius: 2px; }
-    .progressInner { height: 100%; width: 0%; background: var(--accent); transition: width .2s ease; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin: 10px 0 6px;
+    }
+    .stat-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 9px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 56px;
+    }
+    .stat-card .stat-label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .3px; }
+    .stat-card .stat-value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.2; word-break: break-all; }
+    .stat-card .stat-value .unit { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 3px; }
+    .stat-card.accent { border-color: rgba(29,99,237,.32); background: rgba(29,99,237,.04); }
+    .stat-card.accent .stat-value { color: var(--accent); }
+    .stat-card.ok { border-color: rgba(20,122,61,.32); background: rgba(20,122,61,.05); }
+    .stat-card.ok .stat-value { color: var(--ok); }
+    .stat-card.bad .stat-value.has-fail { color: var(--bad); }
+    .stat-card .stat-sub { font-size: 11px; color: var(--muted); }
+    .stat-card .stat-progress { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+    .stat-card .stat-progress span { display: block; height: 100%; background: var(--accent); width: 0%; transition: width .2s ease; }
     .tabs { display: flex; gap: 0; margin: 14px 0 0; border-bottom: 1px solid var(--line); }
     .tab { padding: 8px 16px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: -1px; }
     .tab:hover { color: var(--text); background: transparent; }
@@ -119,6 +144,88 @@
     .warnText { color: var(--warn); font-weight: 600; }
     .muted { color: var(--muted); }
     .hot { color: var(--ok); font-weight: 700; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      line-height: 1.3;
+      border: 1px solid transparent;
+    }
+    .status-badge::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .status-badge.ok { color: var(--ok); background: rgba(20,122,61,.10); border-color: rgba(20,122,61,.30); }
+    .status-badge.bad { color: var(--bad); background: rgba(184,52,42,.10); border-color: rgba(184,52,42,.30); }
+    .status-badge.warn { color: var(--warn); background: rgba(138,98,0,.10); border-color: rgba(138,98,0,.30); }
+    .status-badge.muted { color: var(--muted); background: var(--bg); border-color: var(--line); }
+    /* Sticky first columns (index + wallet) for both summary and detail tables */
+    .tableWrap th:nth-child(1), .tableWrap td:nth-child(1) {
+      position: sticky; left: 0; z-index: 2; background: var(--panel);
+    }
+    .tableWrap thead th:nth-child(1) { background: #fafaf7; z-index: 3; }
+    .tableWrap th:nth-child(2), .tableWrap td:nth-child(2) {
+      position: sticky; left: 44px; z-index: 2; background: var(--panel);
+      box-shadow: 1px 0 0 var(--line);
+    }
+    .tableWrap thead th:nth-child(2) { background: #fafaf7; z-index: 3; }
+    tbody tr:hover td:nth-child(1), tbody tr:hover td:nth-child(2) { background: #fafaf5; }
+    tr.best-row td:nth-child(1), tr.best-row td:nth-child(2) {
+      background: linear-gradient(90deg, rgba(20,122,61,.09), rgba(20,122,61,0) 65%), var(--panel);
+    }
+    /* Export dropdown menu */
+    .menu-wrap { position: relative; display: inline-block; }
+    .menu-wrap > button.menu-trigger::after { content: " ▾"; font-size: 10px; color: var(--muted); }
+    .menu-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      min-width: 180px;
+      background: var(--panel);
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+      padding: 4px 0;
+      z-index: 10;
+      display: none;
+    }
+    .menu-wrap.open .menu-dropdown { display: block; }
+    .menu-dropdown button {
+      display: block;
+      width: 100%;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      border-radius: 0;
+      text-align: left;
+      padding: 7px 14px;
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .menu-dropdown button:hover { background: #efede6; }
+    .menu-dropdown button:disabled { color: var(--muted); cursor: not-allowed; background: transparent; }
+    /* Active filter chips */
+    .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
+    .filter-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 10px;
+      background: rgba(29,99,237,.08); border: 1px solid rgba(29,99,237,.25); color: var(--accent);
+      font-size: 11px; font-weight: 600;
+    }
+    .filter-chip button {
+      background: transparent; color: var(--accent); border: none; padding: 0 0 0 2px;
+      font-size: 13px; line-height: 1; cursor: pointer; font-weight: 700;
+    }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
     .log { margin-top: 10px; max-height: 140px; overflow: auto; border: 1px solid var(--line); background: var(--panel); padding: 8px 10px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; white-space: pre-wrap; border-radius: 3px; }
     .note { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--warn); background: #fdf6e3; color: #5c4600; font-size: 12px; }
@@ -161,46 +268,82 @@
     <h1>OPINX Predict 积分批量查询（持仓金额 + USDT 可用余额）</h1>
     <div class="subtitle">将多个地址按行粘贴。持仓金额走 Vercel 同域代理 /api/predict（API Key 从 Vercel 环境变量读取）；可用余额走 BSC USDT 合约 balanceOf。点击钱包地址打开 Debank BSC 历史记录。</div>
 
-    <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址。"></textarea>
+    <div class="section">
+      <div class="section-title"><span>批量输入</span><span class="section-line"></span></div>
+      <textarea id="wallets" placeholder="一行一个钱包，或者直接粘贴一堆文本，页面会自动提取 0x 钱包地址。"></textarea>
+      <div class="help" id="walletCountHint">每行一个钱包地址，支持粘贴多个地址（自动去重）。</div>
 
-    <div class="controls">
-      <div class="control-group">
-        <label for="weeks">周数</label>
-        <input id="weeks" type="text" value="18" placeholder="18 / 17,18 / 1-18" />
+      <div class="controls">
+        <div class="control-group">
+          <label for="weeks">周数</label>
+          <input id="weeks" type="text" value="18" placeholder="18 / 17,18 / 1-18" />
+        </div>
+        <button id="startBtn">开始查询</button>
+        <button id="stopBtn" class="bad" disabled>停止</button>
+        <button id="clearBtn" class="secondary">清空结果</button>
+        <label class="checkbox"><input id="onlyCalculated" type="checkbox" />只显示已结算的周</label>
+        <label class="checkbox"><input id="liveRender" type="checkbox" checked />查询时刷新表格</label>
       </div>
-      <button id="startBtn">开始查询</button>
-      <button id="clearBtn" class="secondary">清空结果</button>
-      <button id="stopBtn" class="bad" disabled>停止</button>
-      <label class="checkbox"><input id="onlyCalculated" type="checkbox" />只显示已结算的周</label>
-      <label class="checkbox"><input id="liveRender" type="checkbox" checked />查询时刷新表格</label>
     </div>
 
-    <div class="progress-line">
-      <span class="label">进度：</span><span id="statProgress">0 / 0</span>
-      <span class="sep">|</span>
-      <span class="label">成功 / 失败</span><span id="statSuccess">0 / 0</span>
-      <span class="sep">|</span>
-      <span class="label">汇总积分 Σ:</span><span id="statPoints">0</span>
-      <span class="sep">|</span>
-      <span class="label">汇总总积分</span><span id="statTotalPoints">0</span>
-      <span class="sep">|</span>
-      <span class="label">汇总手续费</span><span id="statCost">0 U</span>
-      <span class="sep">|</span>
-      <span class="label">整体积分成本</span><span id="statOverallCpp" class="hot">—</span><span class="muted"> /积分</span>
-      <span class="sep">|</span>
-      <span class="label">汇总持仓金额</span><span id="statHolding">—</span>
-      <span class="sep">|</span>
-      <span class="label">汇总可用余额</span><span id="statBalance">—</span>
-      <span class="sep">|</span>
-      <span class="label">汇总净资产</span><span id="statNetAsset">—</span>
-      <span class="sep">|</span>
-      <span class="label">汇总交易量</span><span id="statVolume">0</span>
-      <span class="sep">|</span>
-      <span class="label">汇总份额</span><span id="statShares">—</span>
-      <span class="sep">|</span>
-      <span class="label">交易次数</span><span id="statTrades">0</span>
-      <span class="sep">|</span>
-      <span class="label">已结算 / 未结算</span><span id="statCalcSplit">0 / 0</span>
+    <div class="section">
+      <div class="section-title"><span>结果概览</span><span class="section-line"></span></div>
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-label">进度</div>
+          <div class="stat-value"><span id="statProgress">0 / 0</span></div>
+          <div class="stat-progress"><span id="progressBar"></span></div>
+        </div>
+        <div class="stat-card bad" id="statSuccessCard">
+          <div class="stat-label">成功 / 失败</div>
+          <div class="stat-value" id="statSuccess">0 / 0</div>
+          <div class="stat-sub"><a href="#" id="viewFailedLink" class="muted" style="text-decoration:underline;display:none">只看失败</a> <a href="#" id="retryFailedLink" class="muted" style="text-decoration:underline;display:none;margin-left:8px">重试失败</a></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">已结算 / 未结算</div>
+          <div class="stat-value" id="statCalcSplit">0 / 0</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="stat-label">整体积分成本</div>
+          <div class="stat-value"><span id="statOverallCpp">—</span><span class="unit">/积分</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总积分 Σ</div>
+          <div class="stat-value" id="statPoints">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总总积分</div>
+          <div class="stat-value" id="statTotalPoints">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总净资产</div>
+          <div class="stat-value"><span id="statNetAsset">—</span><span class="unit">U</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总持仓金额</div>
+          <div class="stat-value"><span id="statHolding">—</span><span class="unit">U</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总可用余额</div>
+          <div class="stat-value"><span id="statBalance">—</span><span class="unit">U</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总手续费</div>
+          <div class="stat-value"><span id="statCost">0 U</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总交易量</div>
+          <div class="stat-value"><span id="statVolume">0</span><span class="unit">U</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">汇总份额</div>
+          <div class="stat-value" id="statShares">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">交易次数</div>
+          <div class="stat-value" id="statTrades">0</div>
+        </div>
+      </div>
     </div>
 
     <div id="bestPanel" class="best-panel" hidden>
@@ -214,8 +357,6 @@
       <span class="best-stat"><span class="muted">余额</span> <b id="bestBalance">—</b> U</span>
       <span class="best-stat"><span class="muted">净资产</span> <b id="bestNetAsset">—</b> U</span>
     </div>
-
-    <div class="progressOuter"><div id="progressBar" class="progressInner"></div></div>
 
     <details class="advanced">
       <summary>高级配置（API、代理、并发、倍率、持仓与余额）</summary>
@@ -302,45 +443,51 @@ https://bsc.drpc.org</textarea>
       </div>
     </details>
 
-    <div class="tabs">
-      <button class="tab active" data-tab="summary" type="button">钱包汇总</button>
-      <button class="tab" data-tab="detail" type="button">周明细</button>
-    </div>
+    <div class="section">
+      <div class="section-title"><span>结果筛选 & 操作</span><span class="section-line"></span></div>
+      <div class="tabs">
+        <button class="tab active" data-tab="summary" type="button">钱包汇总</button>
+        <button class="tab" data-tab="detail" type="button">周明细</button>
+      </div>
 
-    <div class="filter-bar">
-      <span class="filter-label">下限 ≥：</span>
-      <div class="control-group"><label for="minPoints">积分</label><input id="minPoints" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="minBalance">余额</label><input id="minBalance" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="minHolding">持仓</label><input id="minHolding" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="minNetAsset">净资产</label><input id="minNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
-    </div>
-    <div class="filter-bar">
-      <span class="filter-label">上限 ≤：</span>
-      <div class="control-group"><label for="maxHolding">持仓</label><input id="maxHolding" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="maxNetAsset">净资产</label><input id="maxNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="maxReferralPoints">推荐积分</label><input id="maxReferralPoints" type="number" min="0" step="any" placeholder="0" /></div>
-      <div class="control-group"><label for="maxCpp">积分成本</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
-      <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
-      <button id="resetFiltersBtn" class="secondary" type="button">重置筛选</button>
-      <span class="muted" id="filterHint"></span>
-    </div>
+      <div class="filter-bar">
+        <span class="filter-label">下限 ≥</span>
+        <div class="control-group"><label for="minPoints">积分</label><input id="minPoints" type="number" min="0" step="any" placeholder="0" /></div>
+        <div class="control-group"><label for="minBalance">余额</label><input id="minBalance" type="number" min="0" step="any" placeholder="0" /></div>
+        <div class="control-group"><label for="minHolding">持仓</label><input id="minHolding" type="number" min="0" step="any" placeholder="0" /></div>
+        <div class="control-group"><label for="minNetAsset">净资产</label><input id="minNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
+        <span class="filter-label" style="margin-left:8px">上限 ≤</span>
+        <div class="control-group"><label for="maxHolding">持仓</label><input id="maxHolding" type="number" min="0" step="any" placeholder="0" /></div>
+        <div class="control-group"><label for="maxNetAsset">净资产</label><input id="maxNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
+        <div class="control-group"><label for="maxReferralPoints">推荐积分</label><input id="maxReferralPoints" type="number" min="0" step="any" placeholder="0" /></div>
+        <div class="control-group"><label for="maxCpp">积分成本</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
+        <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
+        <button id="resetFiltersBtn" class="secondary" type="button">重置筛选</button>
+      </div>
 
-    <div class="tableBar">
-      <input id="filterInput" type="search" placeholder="按钱包、状态、错误信息、周数过滤..." />
-      <div class="rowCount" id="rowCount">0 行</div>
-      <select id="sortPresetSelect" title="推荐排序">
-        <option value="cost_per_point:asc">积分成本最低</option>
-        <option value="points:desc">积分最多</option>
-        <option value="net_asset_usdt:desc">净资产最高</option>
-        <option value="available_balance_usdt:desc">可用余额最高</option>
-        <option value="holding_amount_usdt:desc">持仓金额最高</option>
-        <option value="total_volume_usdt:desc">交易量最高</option>
-      </select>
-      <button id="sampleBtn" class="secondary" type="button">填入示例</button>
-      <button id="copySummaryBtn" class="secondary" disabled type="button">复制汇总表</button>
-      <button id="copyFilteredWalletsBtn" class="secondary" disabled type="button">复制当前钱包</button>
-      <button id="exportSummaryBtn" class="warn" disabled type="button">导出汇总 CSV</button>
-      <button id="exportDetailBtn" class="warn" disabled type="button">导出明细 CSV</button>
+      <div class="tableBar">
+        <input id="filterInput" type="search" placeholder="按钱包、状态、错误信息、周数过滤..." />
+        <div class="rowCount" id="rowCount">0 行</div>
+        <select id="sortPresetSelect" title="推荐排序">
+          <option value="cost_per_point:asc">积分成本最低</option>
+          <option value="points:desc">积分最多</option>
+          <option value="net_asset_usdt:desc">净资产最高</option>
+          <option value="available_balance_usdt:desc">可用余额最高</option>
+          <option value="holding_amount_usdt:desc">持仓金额最高</option>
+          <option value="total_volume_usdt:desc">交易量最高</option>
+        </select>
+        <button id="sampleBtn" class="secondary" type="button">填入示例</button>
+        <div class="menu-wrap" id="exportMenuWrap">
+          <button id="exportMenuBtn" class="secondary menu-trigger" type="button">导出 / 复制</button>
+          <div class="menu-dropdown">
+            <button id="copySummaryBtn" disabled type="button">复制汇总表</button>
+            <button id="copyFilteredWalletsBtn" disabled type="button">复制当前钱包</button>
+            <button id="exportSummaryBtn" disabled type="button">导出汇总 CSV</button>
+            <button id="exportDetailBtn" disabled type="button">导出明细 CSV</button>
+          </div>
+        </div>
+      </div>
+      <div class="filter-chips" id="filterChips"></div>
     </div>
 
     <div id="summaryBox" class="tableWrap"></div>
@@ -373,6 +520,7 @@ https://bsc.drpc.org</textarea>
       maxNetAsset: 0,
       maxReferralPoints: 0,
       maxCpp: 0,
+      onlyFailed: false,
       sort: {
         summary: { key: "cost_per_point", dir: "asc" },
         detail: { key: "cost_per_point", dir: "asc" },
@@ -1026,6 +1174,7 @@ https://bsc.drpc.org</textarea>
 
     function filterRows(rows, tableKey) {
       let result = rows;
+      if (state.onlyFailed) result = result.filter(r => r.status === "error");
       if (state.onlyCalculated) {
         if (tableKey === "detail") result = result.filter(r => String(r.calculated).toLowerCase() === "true");
         else result = result.filter(r => String(r.calculated_all).toLowerCase() === "true");
@@ -1077,7 +1226,7 @@ https://bsc.drpc.org</textarea>
     }
 
     function cellClass(key, value) {
-      if (key === "status") { if (value === "ok") return "ok"; if (value === "error") return "badText"; return "warnText"; }
+      if (key === "status") return "status-cell";
       if (key === "calculated" || key === "calculated_all") { if (value === "true") return "ok"; if (value === "false") return "warnText"; }
       if (key === "wallet") return "wallet";
       if (MONEY_KEYS.has(key)) return "money";
@@ -1085,7 +1234,29 @@ https://bsc.drpc.org</textarea>
       return "";
     }
 
+    function statusBadgeLabel(value) {
+      if (value === "ok") return "成功";
+      if (value === "error") return "失败";
+      if (value === "week_not_found") return "缺失";
+      return value || "";
+    }
+    function statusBadgeTone(value) {
+      if (value === "ok") return "ok";
+      if (value === "error") return "bad";
+      if (value === "week_not_found") return "warn";
+      return "muted";
+    }
+
     function renderCellValue(td, key, value, row) {
+      if (key === "status") {
+        td.innerHTML = "";
+        const badge = document.createElement("span");
+        badge.className = `status-badge ${statusBadgeTone(value)}`;
+        badge.textContent = statusBadgeLabel(value);
+        td.appendChild(badge);
+        td.title = value || "";
+        return;
+      }
       if (key === "wallet" && value) {
         td.innerHTML = "";
         const wrap = document.createElement("span"); wrap.className = "walletInner";
@@ -1284,20 +1455,45 @@ https://bsc.drpc.org</textarea>
 
       const hasRows = state.detailRows.length > 0;
       $("exportSummaryBtn").disabled = !hasRows; $("exportDetailBtn").disabled = !hasRows; $("copySummaryBtn").disabled = !hasRows; $("copyFilteredWalletsBtn").disabled = !state.summaryRows.length;
+
+      const statSuccessEl = $("statSuccess");
+      if (statSuccessEl) statSuccessEl.classList.toggle("has-fail", state.failedWallets > 0);
+      const viewFailed = $("viewFailedLink");
+      const retryFailed = $("retryFailedLink");
+      if (viewFailed) viewFailed.style.display = state.failedWallets > 0 ? "" : "none";
+      if (retryFailed) retryFailed.style.display = state.failedWallets > 0 && !state.running ? "" : "none";
     }
 
     function updateFilterHint() {
-      const parts = [];
-      if (state.minPoints > 0) parts.push(`积分≥${state.minPoints}`);
-      if (state.minBalance > 0) parts.push(`余额≥${state.minBalance}`);
-      if (state.minHolding > 0) parts.push(`持仓≥${state.minHolding}`);
-      if (state.maxHolding > 0) parts.push(`持仓≤${state.maxHolding}`);
-      if (state.minNetAsset > 0) parts.push(`净资产≥${state.minNetAsset}`);
-      if (state.maxNetAsset > 0) parts.push(`净资产≤${state.maxNetAsset}`);
-      if (state.maxReferralPoints > 0) parts.push(`推荐积分≤${state.maxReferralPoints}`);
-      if (state.maxCpp > 0) parts.push(`积分成本≤${state.maxCpp}`);
-      if (state.onlyCalculated) parts.push("已结算");
-      $("filterHint").textContent = parts.length ? `启用中: ${parts.join(" / ")}` : "";
+      const chips = $("filterChips");
+      if (!chips) return;
+      const items = [];
+      if (state.minPoints > 0) items.push({ label: `积分 ≥ ${state.minPoints}`, key: "minPoints" });
+      if (state.minBalance > 0) items.push({ label: `余额 ≥ ${state.minBalance}`, key: "minBalance" });
+      if (state.minHolding > 0) items.push({ label: `持仓 ≥ ${state.minHolding}`, key: "minHolding" });
+      if (state.maxHolding > 0) items.push({ label: `持仓 ≤ ${state.maxHolding}`, key: "maxHolding" });
+      if (state.minNetAsset > 0) items.push({ label: `净资产 ≥ ${state.minNetAsset}`, key: "minNetAsset" });
+      if (state.maxNetAsset > 0) items.push({ label: `净资产 ≤ ${state.maxNetAsset}`, key: "maxNetAsset" });
+      if (state.maxReferralPoints > 0) items.push({ label: `推荐积分 ≤ ${state.maxReferralPoints}`, key: "maxReferralPoints" });
+      if (state.maxCpp > 0) items.push({ label: `积分成本 ≤ ${state.maxCpp}`, key: "maxCpp" });
+      if (state.onlyCalculated) items.push({ label: "已结算", key: "onlyCalculated" });
+      if (state.onlyFailed) items.push({ label: "只看失败", key: "onlyFailed" });
+      chips.innerHTML = "";
+      for (const it of items) {
+        const chip = document.createElement("span"); chip.className = "filter-chip";
+        chip.textContent = it.label;
+        const x = document.createElement("button"); x.type = "button"; x.textContent = "×"; x.title = "移除此筛选";
+        x.addEventListener("click", () => clearFilter(it.key));
+        chip.appendChild(x);
+        chips.appendChild(chip);
+      }
+    }
+
+    function clearFilter(key) {
+      if (key === "onlyCalculated") { state.onlyCalculated = false; $("onlyCalculated").checked = false; }
+      else if (key === "onlyFailed") { state.onlyFailed = false; }
+      else { state[key] = 0; const el = $(key); if (el) el.value = ""; }
+      renderAll();
     }
 
     async function queryWallet(wallet, selectedWeeks) {
@@ -1403,6 +1599,16 @@ https://bsc.drpc.org</textarea>
       });
     });
 
+    function updateWalletCountHint() {
+      const el = $("walletCountHint"); if (!el) return;
+      const ws = extractWallets($("wallets").value);
+      el.textContent = ws.length
+        ? `已识别 ${ws.length} 个钱包地址（自动去重）。`
+        : "每行一个钱包地址，支持粘贴多个地址（自动去重）。";
+    }
+    $("wallets").addEventListener("input", updateWalletCountHint);
+    updateWalletCountHint();
+
     $("filterInput").addEventListener("input", e => { state.filterText = e.target.value || ""; renderAll(); });
     $("onlyCalculated").addEventListener("change", e => { state.onlyCalculated = e.target.checked; renderAll(); });
     $("minPoints").addEventListener("input", e => { state.minPoints = readMinInput(e.target); renderAll(); });
@@ -1415,7 +1621,74 @@ https://bsc.drpc.org</textarea>
     $("maxCpp").addEventListener("input", e => { state.maxCpp = readMinInput(e.target); renderAll(); });
     $("sortPresetSelect").addEventListener("change", e => { const [key, dir] = String(e.target.value || "cost_per_point:asc").split(":"); state.sort.summary = { key, dir: dir === "asc" ? "asc" : "desc" }; renderAll(); });
     $("quickBestBtn").addEventListener("click", () => { state.minPoints = 10000; state.maxCpp = 0.00005; state.onlyCalculated = true; $("minPoints").value = "10000"; $("maxCpp").value = "0.00005"; $("onlyCalculated").checked = true; state.sort.summary = { key: "cost_per_point", dir: "asc" }; renderAll(); });
-    $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.maxHolding = state.minNetAsset = state.maxNetAsset = state.maxReferralPoints = state.maxCpp = 0; state.onlyCalculated = false; ["minPoints","minBalance","minHolding","maxHolding","minNetAsset","maxNetAsset","maxReferralPoints","maxCpp"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
+    $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.maxHolding = state.minNetAsset = state.maxNetAsset = state.maxReferralPoints = state.maxCpp = 0; state.onlyCalculated = false; state.onlyFailed = false; ["minPoints","minBalance","minHolding","maxHolding","minNetAsset","maxNetAsset","maxReferralPoints","maxCpp"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
+
+    const exportMenuWrap = $("exportMenuWrap");
+    if (exportMenuWrap) {
+      $("exportMenuBtn").addEventListener("click", (e) => { e.stopPropagation(); exportMenuWrap.classList.toggle("open"); });
+      document.addEventListener("click", (e) => { if (!exportMenuWrap.contains(e.target)) exportMenuWrap.classList.remove("open"); });
+      exportMenuWrap.querySelector(".menu-dropdown").addEventListener("click", () => exportMenuWrap.classList.remove("open"));
+    }
+
+    $("viewFailedLink")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      state.onlyFailed = true;
+      state.activeTab = "summary";
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === "summary"));
+      $("summaryBox").style.display = "block";
+      $("detailBox").style.display = "none";
+      renderAll();
+    });
+
+    $("retryFailedLink")?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (state.running) return;
+      const failedWallets = state.summaryRows.filter(r => r.status === "error").map(r => r.wallet);
+      if (!failedWallets.length) return;
+      for (const w of failedWallets) {
+        state.summaryMap.delete(w);
+      }
+      state.detailRows = state.detailRows.filter(r => !failedWallets.includes(r.wallet));
+      state.summaryRows = Array.from(state.summaryMap.values());
+      state.failedWallets = 0;
+      state.completedWallets = Math.max(0, state.completedWallets - failedWallets.length);
+      state.totalWallets = state.completedWallets + failedWallets.length;
+      summaryDirty = false;
+      log(`重试 ${failedWallets.length} 个失败钱包...`);
+      let selectedWeeks = null;
+      try { selectedWeeks = parseWeeks($("weeks").value); } catch (err) { alert(err.message || String(err)); return; }
+      const concurrency = Math.max(1, Math.min(30, Number($("concurrency").value || 5), failedWallets.length));
+      state.abort = false; state.running = true;
+      $("startBtn").disabled = true; $("stopBtn").disabled = false;
+      let cursor = 0;
+      async function worker() {
+        while (!state.abort) {
+          const idx = cursor++;
+          if (idx >= failedWallets.length) break;
+          const wallet = failedWallets[idx];
+          try {
+            const rows = await queryWallet(wallet, selectedWeeks);
+            appendWalletRows(wallet, rows);
+            if (rows.some(r => r.status === "ok" || r.status === "week_not_found")) state.successWallets += 1;
+            else state.failedWallets += 1;
+          } catch (err) {
+            const message = err && err.message ? err.message : String(err);
+            appendWalletRows(wallet, [buildErrorDetailRow(wallet, message)]);
+            state.failedWallets += 1;
+            log(`重试失败: ${wallet} | ${message}`);
+          } finally {
+            state.completedWallets += 1;
+            updateProgressOnly();
+            if ($("liveRender").checked) scheduleRender();
+          }
+        }
+      }
+      try { await Promise.all(Array.from({ length: concurrency }, worker)); }
+      finally {
+        state.running = false; $("startBtn").disabled = false; $("stopBtn").disabled = true;
+        log(state.abort ? "重试已停止。" : "重试完成。"); scheduleRender(true);
+      }
+    });
 
     $("bestCopyBtn").addEventListener("click", async () => { const addr = $("bestAddr").dataset.wallet || ""; if (!addr) return; try { await navigator.clipboard.writeText(addr); } catch {} });
     ["summaryBox", "detailBox"].forEach(boxId => {
