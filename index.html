@@ -214,6 +214,59 @@
     }
     .menu-dropdown button:hover { background: #efede6; }
     .menu-dropdown button:disabled { color: var(--muted); cursor: not-allowed; background: transparent; }
+    /* Week multi-select dropdown */
+    .week-selector { position: relative; display: inline-block; }
+    .week-trigger {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 140px;
+      text-align: left;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .week-trigger:hover { border-color: var(--accent); background: var(--panel); color: var(--text); }
+    .week-trigger .week-arrow { color: var(--muted); font-size: 10px; }
+    .week-selector.open .week-trigger { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(29,99,237,.12); }
+    .week-panel {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 200px;
+      max-height: 320px;
+      overflow-y: auto;
+      background: var(--panel);
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      box-shadow: 0 6px 16px rgba(0,0,0,.10);
+      padding: 4px 0;
+      z-index: 20;
+      display: none;
+    }
+    .week-selector.open .week-panel { display: block; }
+    .week-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      user-select: none;
+      font-weight: 500;
+    }
+    .week-option:hover { background: #efede6; }
+    .week-option input { accent-color: var(--accent); margin: 0; }
+    .week-option .week-tag { color: var(--accent); font-size: 11px; margin-left: auto; font-weight: 600; }
+    .week-option.disabled { opacity: .45; cursor: not-allowed; }
+    .week-divider { height: 1px; background: var(--line); margin: 4px 0; }
+    .week-actions { display: flex; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--line); position: sticky; bottom: 0; background: var(--panel); }
+    .week-actions button { font-size: 11px; padding: 4px 8px; font-weight: 600; flex: 1; }
     /* Active filter chips */
     .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
     .filter-chip {
@@ -275,8 +328,15 @@
 
       <div class="controls">
         <div class="control-group">
-          <label for="weeks">周数</label>
-          <input id="weeks" type="text" value="18" placeholder="18 / 17,18 / 1-18" />
+          <label for="weekTrigger">周数</label>
+          <div class="week-selector" id="weekSelector">
+            <button type="button" class="week-trigger" id="weekTrigger" title="点击选择周（支持多选）">
+              <span id="weekTriggerLabel">选择周</span>
+              <span class="week-arrow">▾</span>
+            </button>
+            <div class="week-panel" id="weekPanel"></div>
+          </div>
+          <input id="weeks" type="hidden" value="" />
         </div>
         <button id="startBtn">开始查询</button>
         <button id="stopBtn" class="bad" disabled>停止</button>
@@ -1583,7 +1643,8 @@ https://bsc.drpc.org</textarea>
 
     function fillSample() {
       $("wallets").value = ["0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"].join("\n");
-      $("weeks").value = "17,18";
+      setWeekSelection("17,18");
+      updateWalletCountHint();
       setLog("已填入示例。把示例钱包替换成你自己的即可。 ");
     }
 
@@ -1716,19 +1777,133 @@ https://bsc.drpc.org</textarea>
       const now = Math.floor(Date.now() / 1000);
       return Math.max(1, Math.floor((now - WEEK_ANCHOR_START_TS) / WEEK_SECONDS) + 1);
     }
-    function applyDefaultWeek() {
-      const el = $("weeks");
-      if (!el) return;
-      let week = currentWeekNumber();
+
+    function maxAvailableWeek() {
+      let w = currentWeekNumber();
       try {
         const saved = Number(localStorage.getItem("yuce.latestWeek") || "0");
-        if (Number.isFinite(saved) && saved > week) week = saved;
+        if (Number.isFinite(saved) && saved > w) w = saved;
       } catch {}
-      el.value = String(week);
-      el.placeholder = `${week} / ${Math.max(1, week - 1)},${week} / 1-${week}`;
+      return w;
     }
-    applyDefaultWeek();
 
+    function buildWeekPanel() {
+      const panel = $("weekPanel");
+      if (!panel) return;
+      const maxW = maxAvailableWeek();
+      const currentW = currentWeekNumber();
+      let html = "";
+      html += `<label class="week-option"><input type="checkbox" id="weekAll" />全部周</label>`;
+      html += `<label class="week-option"><input type="checkbox" id="weekCurrentOnly" />仅本周（W${currentW}）</label>`;
+      html += `<div class="week-divider"></div>`;
+      for (let w = maxW; w >= 1; w--) {
+        const tag = w === currentW ? `<span class="week-tag">本周</span>` : "";
+        html += `<label class="week-option" data-week-option="${w}"><input type="checkbox" data-week="${w}" />W${w}${tag}</label>`;
+      }
+      html += `<div class="week-actions"><button type="button" id="weekClearBtn" class="secondary">清空</button><button type="button" id="weekDoneBtn">完成</button></div>`;
+      panel.innerHTML = html;
+    }
+
+    function readWeekSelection() {
+      const allCb = $("weekAll");
+      if (allCb && allCb.checked) return { all: true, weeks: [] };
+      const checked = [...$("weekPanel").querySelectorAll('input[data-week]:checked')].map(el => Number(el.dataset.week));
+      checked.sort((a, b) => a - b);
+      return { all: false, weeks: checked };
+    }
+
+    function updateWeekUI() {
+      const sel = readWeekSelection();
+      const panel = $("weekPanel");
+      const label = $("weekTriggerLabel");
+      const hidden = $("weeks");
+      const currentW = currentWeekNumber();
+      const currentOnlyCb = $("weekCurrentOnly");
+      if (currentOnlyCb) currentOnlyCb.checked = !sel.all && sel.weeks.length === 1 && sel.weeks[0] === currentW;
+      panel.querySelectorAll(".week-option").forEach(o => {
+        if (o.dataset.weekOption) o.classList.toggle("disabled", sel.all);
+      });
+      panel.querySelectorAll('input[data-week]').forEach(el => { el.disabled = sel.all; });
+      if (sel.all) {
+        label.textContent = "全部周";
+        hidden.value = "";
+      } else if (!sel.weeks.length) {
+        label.textContent = "请选择周";
+        hidden.value = "";
+      } else if (sel.weeks.length === 1) {
+        label.textContent = `W${sel.weeks[0]}${sel.weeks[0] === currentW ? "（本周）" : ""}`;
+        hidden.value = String(sel.weeks[0]);
+      } else if (sel.weeks.length <= 3) {
+        label.textContent = sel.weeks.map(w => `W${w}`).join(", ");
+        hidden.value = sel.weeks.join(",");
+      } else {
+        label.textContent = `已选 ${sel.weeks.length} 周`;
+        hidden.value = sel.weeks.join(",");
+      }
+    }
+
+    function setWeekSelection(weeksStr) {
+      const raw = String(weeksStr || "").trim();
+      const panel = $("weekPanel");
+      if (!panel) return;
+      panel.querySelectorAll('input[data-week]').forEach(el => { el.checked = false; });
+      const allCb = $("weekAll");
+      if (allCb) allCb.checked = false;
+      if (!raw) { if (allCb) allCb.checked = true; updateWeekUI(); return; }
+      let target = null;
+      try { target = parseWeeks(raw); } catch { target = null; }
+      if (!target || !target.length) { if (allCb) allCb.checked = true; updateWeekUI(); return; }
+      const maxW = maxAvailableWeek();
+      for (const w of target) {
+        if (w < 1 || w > maxW) continue;
+        const cb = panel.querySelector(`input[data-week="${w}"]`);
+        if (cb) cb.checked = true;
+      }
+      updateWeekUI();
+    }
+
+    function setupWeekSelector() {
+      const wrap = $("weekSelector");
+      if (!wrap) return;
+      buildWeekPanel();
+      const defaultWeek = maxAvailableWeek();
+      setWeekSelection(String(defaultWeek));
+      $("weekTrigger").addEventListener("click", e => {
+        e.stopPropagation();
+        if (!wrap.classList.contains("open")) {
+          const current = $("weeks").value;
+          const allChecked = $("weekAll")?.checked;
+          buildWeekPanel();
+          setWeekSelection(allChecked ? "" : current);
+        }
+        wrap.classList.toggle("open");
+      });
+      document.addEventListener("click", e => { if (!wrap.contains(e.target)) wrap.classList.remove("open"); });
+      $("weekPanel").addEventListener("change", e => {
+        const t = e.target;
+        if (t.id === "weekAll") {
+          if (t.checked) $("weekPanel").querySelectorAll('input[data-week]').forEach(el => el.checked = false);
+          else if (!$("weekPanel").querySelectorAll('input[data-week]:checked').length) t.checked = true;
+        } else if (t.id === "weekCurrentOnly") {
+          const cur = currentWeekNumber();
+          $("weekPanel").querySelectorAll('input[data-week]').forEach(el => { el.checked = Number(el.dataset.week) === cur; });
+          $("weekAll").checked = false;
+        } else if (t.dataset.week) {
+          if (t.checked) $("weekAll").checked = false;
+          if (!$("weekPanel").querySelectorAll('input[data-week]:checked').length) $("weekAll").checked = true;
+        }
+        updateWeekUI();
+      });
+      $("weekPanel").addEventListener("click", e => {
+        if (e.target.id === "weekClearBtn") {
+          $("weekPanel").querySelectorAll('input[data-week]').forEach(el => el.checked = false);
+          $("weekAll").checked = true;
+          updateWeekUI();
+        } else if (e.target.id === "weekDoneBtn") { wrap.classList.remove("open"); }
+      });
+    }
+
+    setupWeekSelector();
     renderAll();
   </script>
 </body>
