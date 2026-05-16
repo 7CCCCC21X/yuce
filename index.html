@@ -368,12 +368,14 @@
           <div class="stat-value"><span id="statOverallCpp">—</span><span class="unit">/积分</span></div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">汇总积分 Σ</div>
+          <div class="stat-label">选中周积分 Σ</div>
           <div class="stat-value" id="statPoints">0</div>
+          <div class="stat-sub">仅统计当前选中周</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">汇总总积分</div>
+          <div class="stat-label">钱包总积分 Σ</div>
           <div class="stat-value" id="statTotalPoints">0</div>
+          <div class="stat-sub">排行榜累计 / 钱包全期</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">汇总净资产</div>
@@ -612,7 +614,7 @@ https://bsc.drpc.org</textarea>
       ["status", "状态"],
       ["week", "周"],
       ["calculated", "已结算"],
-      ["points", "周积分"],
+      ["points", "本周积分"],
       ["cost_usdt", "手续费"],
       ["cost_per_point", "积分成本 $/积分"],
       ["holding_amount_usdt", "持仓金额"],
@@ -625,7 +627,7 @@ https://bsc.drpc.org</textarea>
       ["total_volume_shares", "份额"],
       ["total_volume_per_point", "总量/分"],
       ["shares_per_point", "份额/分"],
-      ["total_points", "当前总积分"],
+      ["total_points", "钱包总积分"],
       ["allocation_round_points", "本轮积分"],
       ["week_start_ts", "开始时间戳"],
       ["week_end_ts", "结束时间戳"],
@@ -638,7 +640,7 @@ https://bsc.drpc.org</textarea>
     const summaryColumns = [
       ["wallet", "钱包"],
       ["status", "状态"],
-      ["points", "统计周积分"],
+      ["points", "选中周积分"],
       ["cost_usdt", "手续费"],
       ["cost_per_point", "积分成本 $/积分"],
       ["holding_amount_usdt", "持仓金额"],
@@ -653,7 +655,7 @@ https://bsc.drpc.org</textarea>
       ["shares_per_point", "份额/分"],
       ["selected_weeks", "统计周数"],
       ["calculated_all", "全部已结算"],
-      ["total_points", "当前总积分"],
+      ["total_points", "钱包总积分"],
       ["referral_points", "推荐积分"],
       ["error", "错误"]
     ];
