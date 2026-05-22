@@ -299,6 +299,8 @@
     tr.best-row { background: linear-gradient(90deg, rgba(20,122,61,.09), rgba(20,122,61,0) 65%); }
     tr.best-row:hover { background: linear-gradient(90deg, rgba(20,122,61,.14), rgba(20,122,61,0) 65%); }
     td.money { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .pnl-pos { color: var(--ok); font-weight: 600; }
+    .pnl-neg { color: var(--bad); font-weight: 600; }
     td.cpp { font-variant-numeric: tabular-nums; min-width: 150px; }
     td.cpp .cppInner { display: flex; align-items: center; gap: 8px; width: 100%; }
     td.cpp .cppVal { min-width: 76px; text-align: right; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
@@ -366,6 +368,11 @@
         <div class="stat-card ok">
           <div class="stat-label">整体积分成本</div>
           <div class="stat-value"><span id="statOverallCpp">—</span><span class="unit">/积分</span></div>
+        </div>
+        <div class="stat-card" id="statPnlCard">
+          <div class="stat-label">官网总盈利 PNL</div>
+          <div class="stat-value"><span id="statPnl">—</span><span class="unit">U</span></div>
+          <div class="stat-sub" id="statPnlSub">Predict.fun GraphQL pnlTimeseries 最新值</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">选中周积分 Σ</div>
@@ -477,6 +484,16 @@
         </div>
 
         <div>
+          <label class="checkbox" style="margin-top:24px;"><input id="queryPnl" type="checkbox" checked />查询官网 PNL</label>
+          <div class="help">走 Predict.fun GraphQL pnlTimeseries 最新值。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="pnlApiTemplate">官网 PNL API 模板</label>
+          <input id="pnlApiTemplate" type="text" value="/api/portfolio-pnl?address={wallet}&amp;interval=_1D" />
+          <div class="help">默认走同域代理 /api/portfolio-pnl；服务端转发到 Predict.fun GraphQL GetAccountPnlTimeseries，返回 pnlUsd。</div>
+        </div>
+
+        <div>
           <label class="checkbox" style="margin-top:24px;"><input id="queryBalance" type="checkbox" checked />查询 USDT 可用余额</label>
           <div class="help">链上读取 USDT.balanceOf(wallet)。</div>
         </div>
@@ -534,6 +551,7 @@ https://bsc.drpc.org</textarea>
           <option value="cost_per_point:asc">积分成本最低</option>
           <option value="points:desc">积分最多</option>
           <option value="net_asset_usdt:desc">净资产最高</option>
+          <option value="pnl:desc">官网PNL最高</option>
           <option value="available_balance_usdt:desc">可用余额最高</option>
           <option value="holding_amount_usdt:desc">持仓金额最高</option>
           <option value="total_volume_usdt:desc">交易量最高</option>
@@ -595,7 +613,7 @@ https://bsc.drpc.org</textarea>
       "week", "trade_count",
       "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt",
       "paid_fee_usdt", "cost_usdt", "points", "referral_points",
-      "cost_per_point", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt",
+      "cost_per_point", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt", "pnl",
       "total_volume_shares", "shares_per_point",
       "total_volume_per_point", "paid_volume_per_point", "free_volume_per_point",
       "week_start_ts", "week_end_ts"
@@ -607,6 +625,7 @@ https://bsc.drpc.org</textarea>
       "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt", "total_volume_shares",
       "cost_usdt", "paid_fee_usdt", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt"
     ]);
+    const PNL_KEYS = new Set(["pnl"]);
     const TWO_DECIMAL_KEYS = new Set(["points", "total_points"]);
 
     const detailColumns = [
@@ -620,6 +639,7 @@ https://bsc.drpc.org</textarea>
       ["holding_amount_usdt", "持仓金额"],
       ["available_balance_usdt", "可用余额"],
       ["net_asset_usdt", "净资产"],
+      ["pnl", "官网PNL"],
       ["trade_count", "交易次数"],
       ["paid_volume_usdt", "付费交易量"],
       ["free_volume_usdt", "免费交易量"],
@@ -646,6 +666,7 @@ https://bsc.drpc.org</textarea>
       ["holding_amount_usdt", "持仓金额"],
       ["available_balance_usdt", "可用余额"],
       ["net_asset_usdt", "净资产"],
+      ["pnl", "官网PNL"],
       ["trade_count", "交易次数"],
       ["paid_volume_usdt", "付费交易量"],
       ["free_volume_usdt", "免费交易量"],
@@ -785,6 +806,7 @@ https://bsc.drpc.org</textarea>
     function num(value, fallback = 0) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
     function formatTwoDecimal(value) { const n = Number(String(value ?? "").replace(/,/g, "")); return Number.isFinite(n) ? n.toFixed(2) : "—"; }
     function formatMoney(value) { const n = Number(String(value ?? "").replace(/,/g, "")); return Number.isFinite(n) ? n.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"; }
+    function signedMoney(value) { const n = Number(String(value ?? "").replace(/,/g, "")); if (!Number.isFinite(n)) return "—"; return (n > 0 ? "+" : "") + n.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     function timestampToUTC8(ts) { const n = Number(ts); return Number.isFinite(n) ? new Date((n + 8 * 3600) * 1000).toISOString().replace("T", " ").slice(0, 19) : ""; }
     function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
     function joinErrors(...parts) { return parts.filter(Boolean).join(" | "); }
@@ -1076,6 +1098,33 @@ https://bsc.drpc.org</textarea>
       }
     }
 
+    function shouldQueryPnl() { const el = $("queryPnl"); return !el || el.checked; }
+
+    function makePnlUrl(wallet) {
+      const template = ($("pnlApiTemplate") && $("pnlApiTemplate").value || "").trim();
+      if (!template) throw new Error("官网 PNL API 模板不能为空");
+      if (!template.includes("{wallet}") && !template.includes("{address}")) throw new Error("官网 PNL API 模板必须包含 {wallet} 或 {address}");
+      return template.replaceAll("{wallet}", wallet).replaceAll("{address}", wallet);
+    }
+
+    async function fetchOfficialPortfolioPnl(wallet) {
+      if (!shouldQueryPnl()) return { pnl: "", error: "" };
+      try {
+        const data = await fetchWithRetries(makePnlUrl(wallet));
+        const v = firstValueFromPaths(data, ["pnlUsd", "pnl", "data.pnlUsd", "data.pnl", "result.pnlUsd"]);
+        if (v === undefined || v === null || v === "") {
+          return { pnl: "", error: data && data.error ? String(data.error) : "未取到官网PNL" };
+        }
+        const n = Number(v);
+        if (!Number.isFinite(n)) return { pnl: "", error: "官网PNL非数字" };
+        return { pnl: normalizeDecimal(v), error: "" };
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        if (state.abort || message === "已停止") throw err;
+        return { pnl: "", error: `官网PNL失败: ${message}` };
+      }
+    }
+
     function readMultiplier(id, fallback) {
       const raw = ($(id).value || "").trim();
       if (!raw) return fallback;
@@ -1083,23 +1132,24 @@ https://bsc.drpc.org</textarea>
       return normalized === "0" && raw !== "0" ? fallback : normalized;
     }
 
-    function assetFields(holdingResult, balanceResult) {
+    function assetFields(holdingResult, balanceResult, pnlResult) {
       const holding = holdingResult && holdingResult.holding_amount_usdt !== "" && holdingResult.holding_amount_usdt !== undefined && holdingResult.holding_amount_usdt !== null ? normalizeDecimal(holdingResult.holding_amount_usdt) : "";
       const balance = balanceResult && balanceResult.available_balance_usdt !== "" && balanceResult.available_balance_usdt !== undefined && balanceResult.available_balance_usdt !== null ? normalizeDecimal(balanceResult.available_balance_usdt) : "";
+      const pnl = pnlResult && pnlResult.pnl !== "" && pnlResult.pnl !== undefined && pnlResult.pnl !== null ? normalizeDecimal(pnlResult.pnl) : "";
       let net = "";
       if (holding !== "" || balance !== "") net = decimalAdd(holding || "0", balance || "0");
-      return { holding_amount_usdt: holding, available_balance_usdt: balance, net_asset_usdt: net };
+      return { holding_amount_usdt: holding, available_balance_usdt: balance, net_asset_usdt: net, pnl };
     }
 
-    async function buildRows(wallet, data, selectedWeeks, holdingResult, balanceResult) {
+    async function buildRows(wallet, data, selectedWeeks, holdingResult, balanceResult, pnlResult) {
       const rows = [];
       const leaderboard = data && data.leaderboard ? data.leaderboard : {};
       const weeks = Array.isArray(data && data.weeks) ? data.weeks : [];
       const weekMap = new Map();
       const pointsMul = readMultiplier("pointsMultiplier", "1.1");
       const feeMul = readMultiplier("feeMultiplier", "0.9");
-      const assets = assetFields(holdingResult, balanceResult);
-      const assetError = joinErrors(holdingResult && holdingResult.error, balanceResult && balanceResult.error);
+      const assets = assetFields(holdingResult, balanceResult, pnlResult);
+      const assetError = joinErrors(holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error);
       for (const w of weeks) weekMap.set(Number(w.week), w);
       try {
         if (weekMap.size) {
@@ -1164,8 +1214,8 @@ https://bsc.drpc.org</textarea>
       return rows;
     }
 
-    function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceResult = {}) {
-      const assets = assetFields(holdingResult, balanceResult);
+    function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceResult = {}, pnlResult = {}) {
+      const assets = assetFields(holdingResult, balanceResult, pnlResult);
       return {
         wallet, status: "error",
         total_points: "0", allocation_round_points: "0", week: "", calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
@@ -1173,7 +1223,7 @@ https://bsc.drpc.org</textarea>
         paid_fee_usdt: "0", cost_usdt: "0", points: "0", cost_per_point: "",
         total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "", referral_points: "0",
         ...assets,
-        error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error)
+        error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error)
       };
     }
 
@@ -1186,12 +1236,13 @@ https://bsc.drpc.org</textarea>
             wallet, status: row.status === "error" ? "error" : "ok", total_points: row.total_points || "0", selected_weeks: [], calculated_all: "true",
             trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
             paid_fee_usdt: "0", cost_usdt: "0", points: "0", referral_points: "0",
-            holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", error: ""
+            holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", pnl: "", error: ""
           });
         }
         const s = map.get(wallet);
         if (row.holding_amount_usdt !== "" && row.holding_amount_usdt !== undefined && row.holding_amount_usdt !== null) s.holding_amount_usdt = normalizeDecimal(row.holding_amount_usdt);
         if (row.available_balance_usdt !== "" && row.available_balance_usdt !== undefined && row.available_balance_usdt !== null) s.available_balance_usdt = normalizeDecimal(row.available_balance_usdt);
+        if (row.pnl !== "" && row.pnl !== undefined && row.pnl !== null) s.pnl = normalizeDecimal(row.pnl);
         if (s.holding_amount_usdt !== "" || s.available_balance_usdt !== "") s.net_asset_usdt = decimalAdd(s.holding_amount_usdt || "0", s.available_balance_usdt || "0");
 
         if (row.status === "error") { s.status = "error"; s.calculated_all = ""; s.error = joinErrors(s.error, row.error || "请求失败"); continue; }
@@ -1291,6 +1342,12 @@ https://bsc.drpc.org</textarea>
       if (key === "status") return "status-cell";
       if (key === "calculated" || key === "calculated_all") { if (value === "true") return "ok"; if (value === "false") return "warnText"; }
       if (key === "wallet") return "wallet";
+      if (PNL_KEYS.has(key)) {
+        if (value === "" || value === undefined || value === null) return "money";
+        const n = Number(value);
+        if (!Number.isFinite(n)) return "money";
+        return n > 0 ? "money pnl-pos" : (n < 0 ? "money pnl-neg" : "money");
+      }
       if (MONEY_KEYS.has(key)) return "money";
       if (CPP_KEYS.has(key)) { if (value === "" || value === undefined || value === null) return "cpp none"; if (value === "Infinity") return "cpp inf"; if (Number(value) === 0) return "cpp free"; return "cpp"; }
       return "";
@@ -1326,6 +1383,7 @@ https://bsc.drpc.org</textarea>
         const btn = document.createElement("button"); btn.className = "copyBtn"; btn.type = "button"; btn.textContent = "复制"; btn.dataset.wallet = value;
         wrap.append(link, btn); td.appendChild(wrap); return;
       }
+      if (PNL_KEYS.has(key)) { td.textContent = value === "" || value === undefined || value === null ? "—" : signedMoney(value); td.title = value || ""; return; }
       if (MONEY_KEYS.has(key)) { td.textContent = value === "" || value === undefined || value === null ? "—" : formatMoney(value); td.title = value || ""; return; }
       if (TWO_DECIMAL_KEYS.has(key)) { td.textContent = formatTwoDecimal(value); td.title = value || ""; return; }
       if (VPP_KEYS.has(key)) { td.textContent = formatVolumePerPoint(value); td.title = value || ""; return; }
@@ -1480,13 +1538,15 @@ https://bsc.drpc.org</textarea>
         if (r.calculated === "true") calculated += 1; else if (r.calculated === "false") uncalculated += 1;
       }
       let totalHolding = "0", holdingCount = 0, totalBalance = "0", balanceCount = 0, totalNet = "0", netCount = 0;
-      let totalTotalPoints = "0", totalPointsCount = 0;
+      let totalTotalPoints = "0", totalPointsCount = 0, totalPnl = "0", pnlCount = 0, okCount = 0;
       for (const r of state.summaryRows) {
         if (r.status !== "ok") continue;
+        okCount += 1;
         if (r.holding_amount_usdt !== "" && r.holding_amount_usdt !== undefined && r.holding_amount_usdt !== null) { totalHolding = decimalAdd(totalHolding, r.holding_amount_usdt || "0"); holdingCount += 1; }
         if (r.available_balance_usdt !== "" && r.available_balance_usdt !== undefined && r.available_balance_usdt !== null) { totalBalance = decimalAdd(totalBalance, r.available_balance_usdt || "0"); balanceCount += 1; }
         if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet = decimalAdd(totalNet, r.net_asset_usdt || "0"); netCount += 1; }
         if (r.total_points !== "" && r.total_points !== undefined && r.total_points !== null) { totalTotalPoints = decimalAdd(totalTotalPoints, r.total_points || "0"); totalPointsCount += 1; }
+        if (r.pnl !== "" && r.pnl !== undefined && r.pnl !== null) { totalPnl = decimalAdd(totalPnl, r.pnl || "0"); pnlCount += 1; }
       }
       $("statVolume").textContent = formatMoney(totalVolume);
       $("statShares").textContent = sharesCount ? formatMoney(totalShares) : "—";
@@ -1499,6 +1559,19 @@ https://bsc.drpc.org</textarea>
       $("statHolding").textContent = holdingCount ? formatMoney(totalHolding) + " U" : "—";
       $("statBalance").textContent = balanceCount ? formatMoney(totalBalance) + " U" : "—";
       $("statNetAsset").textContent = netCount ? formatMoney(totalNet) + " U" : "—";
+      const statPnlEl = $("statPnl");
+      if (statPnlEl) {
+        statPnlEl.textContent = pnlCount ? signedMoney(totalPnl) : "—";
+        const pnlNum = Number(totalPnl);
+        statPnlEl.classList.toggle("pnl-pos", pnlCount > 0 && pnlNum > 0);
+        statPnlEl.classList.toggle("pnl-neg", pnlCount > 0 && pnlNum < 0);
+      }
+      const statPnlSub = $("statPnlSub");
+      if (statPnlSub) {
+        const missing = shouldQueryPnl() ? Math.max(0, okCount - pnlCount) : 0;
+        statPnlSub.textContent = missing > 0 ? `${missing} 个地址未取到官网PNL` : "Predict.fun GraphQL pnlTimeseries 最新值";
+        statPnlSub.classList.toggle("pnl-neg", missing > 0);
+      }
       const pct = state.totalWallets ? Math.round(state.completedWallets / state.totalWallets * 100) : 0;
       $("progressBar").style.width = `${pct}%`;
 
@@ -1559,15 +1632,17 @@ https://bsc.drpc.org</textarea>
     }
 
     async function queryWallet(wallet, selectedWeeks) {
-      const [pointsRes, holdingRes, balanceRes] = await Promise.allSettled([
+      const [pointsRes, holdingRes, balanceRes, pnlRes] = await Promise.allSettled([
         fetchWallet(wallet),
         fetchPositionValue(wallet),
-        fetchUsdtBalance(wallet)
+        fetchUsdtBalance(wallet),
+        fetchOfficialPortfolioPnl(wallet)
       ]);
       const holding = holdingRes.status === "fulfilled" ? holdingRes.value : { holding_amount_usdt: "", error: holdingRes.reason?.message || "持仓接口失败" };
       const balance = balanceRes.status === "fulfilled" ? balanceRes.value : { available_balance_usdt: "", error: balanceRes.reason?.message || "余额查询失败" };
-      if (pointsRes.status !== "fulfilled") return [buildErrorDetailRow(wallet, pointsRes.reason?.message || "积分接口失败", holding, balance)];
-      return buildRows(wallet, pointsRes.value, selectedWeeks, holding, balance);
+      const pnl = pnlRes.status === "fulfilled" ? pnlRes.value : { pnl: "", error: pnlRes.reason?.message || "官网PNL失败" };
+      if (pointsRes.status !== "fulfilled") return [buildErrorDetailRow(wallet, pointsRes.reason?.message || "积分接口失败", holding, balance, pnl)];
+      return buildRows(wallet, pointsRes.value, selectedWeeks, holding, balance, pnl);
     }
 
     async function runQuery() {
@@ -1579,7 +1654,7 @@ https://bsc.drpc.org</textarea>
       let concurrency = Math.max(1, Math.min(30, Number($("concurrency").value || 5), wallets.length));
       state.abort = false; state.running = true; state.totalWallets = wallets.length; state.completedWallets = 0; state.successWallets = 0; state.failedWallets = 0; state.detailRows = []; state.summaryRows = []; state.summaryMap = new Map(); summaryDirty = true;
       $("startBtn").disabled = true; $("stopBtn").disabled = false;
-      setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}，份额：${shouldQueryShares() ? "开" : "关"}，持仓：${shouldQueryHoldings() ? "开" : "关"}，余额：${shouldQueryBalance() ? "开" : "关"}`);
+      setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}，份额：${shouldQueryShares() ? "开" : "关"}，持仓：${shouldQueryHoldings() ? "开" : "关"}，余额：${shouldQueryBalance() ? "开" : "关"}，官网PNL：${shouldQueryPnl() ? "开" : "关"}`);
       renderAll();
       let cursor = 0;
       async function worker() {
