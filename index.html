@@ -372,7 +372,7 @@
         <div class="stat-card" id="statPnlCard">
           <div class="stat-label">官网总盈利 PNL</div>
           <div class="stat-value"><span id="statPnl">—</span><span class="unit">U</span></div>
-          <div class="stat-sub">Predict.fun 官网口径</div>
+          <div class="stat-sub" id="statPnlSub">Predict.fun GraphQL pnlTimeseries 最新值</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">选中周积分 Σ</div>
@@ -1538,9 +1538,10 @@ https://bsc.drpc.org</textarea>
         if (r.calculated === "true") calculated += 1; else if (r.calculated === "false") uncalculated += 1;
       }
       let totalHolding = "0", holdingCount = 0, totalBalance = "0", balanceCount = 0, totalNet = "0", netCount = 0;
-      let totalTotalPoints = "0", totalPointsCount = 0, totalPnl = "0", pnlCount = 0;
+      let totalTotalPoints = "0", totalPointsCount = 0, totalPnl = "0", pnlCount = 0, okCount = 0;
       for (const r of state.summaryRows) {
         if (r.status !== "ok") continue;
+        okCount += 1;
         if (r.holding_amount_usdt !== "" && r.holding_amount_usdt !== undefined && r.holding_amount_usdt !== null) { totalHolding = decimalAdd(totalHolding, r.holding_amount_usdt || "0"); holdingCount += 1; }
         if (r.available_balance_usdt !== "" && r.available_balance_usdt !== undefined && r.available_balance_usdt !== null) { totalBalance = decimalAdd(totalBalance, r.available_balance_usdt || "0"); balanceCount += 1; }
         if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet = decimalAdd(totalNet, r.net_asset_usdt || "0"); netCount += 1; }
@@ -1564,6 +1565,12 @@ https://bsc.drpc.org</textarea>
         const pnlNum = Number(totalPnl);
         statPnlEl.classList.toggle("pnl-pos", pnlCount > 0 && pnlNum > 0);
         statPnlEl.classList.toggle("pnl-neg", pnlCount > 0 && pnlNum < 0);
+      }
+      const statPnlSub = $("statPnlSub");
+      if (statPnlSub) {
+        const missing = shouldQueryPnl() ? Math.max(0, okCount - pnlCount) : 0;
+        statPnlSub.textContent = missing > 0 ? `${missing} 个地址未取到官网PNL` : "Predict.fun GraphQL pnlTimeseries 最新值";
+        statPnlSub.classList.toggle("pnl-neg", missing > 0);
       }
       const pct = state.totalWallets ? Math.round(state.completedWallets / state.totalWallets * 100) : 0;
       $("progressBar").style.width = `${pct}%`;
