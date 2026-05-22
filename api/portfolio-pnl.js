@@ -149,15 +149,23 @@ async function fetchPnlTimeseries({ graphqlUrl, address, interval }) {
     operationName: 'GetAccountPnlTimeseries',
   };
 
+  const headers = {
+    Accept: 'application/graphql-response+json, application/json',
+    'Content-Type': 'application/json',
+    Origin: 'https://predict.fun',
+    Referer: 'https://predict.fun/',
+    'x-accept-language': 'zh-CN',
+  };
+  // Predict.fun's GraphQL appears to gate account-scoped data behind a session.
+  // Forward a token / cookie when provided so the proxy can act as a logged-in client.
+  // Capture these from a logged-in predict.fun session (DevTools → Network → the
+  // GraphQL request headers) and set them as Vercel env vars.
+  if (process.env.PREDICT_GRAPHQL_AUTH) headers.Authorization = process.env.PREDICT_GRAPHQL_AUTH;
+  if (process.env.PREDICT_GRAPHQL_COOKIE) headers.Cookie = process.env.PREDICT_GRAPHQL_COOKIE;
+
   const upstream = await fetch(graphqlUrl, {
     method: 'POST',
-    headers: {
-      Accept: 'application/graphql-response+json, application/json',
-      'Content-Type': 'application/json',
-      Origin: 'https://predict.fun',
-      Referer: 'https://predict.fun/',
-      'x-accept-language': 'zh-CN',
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
