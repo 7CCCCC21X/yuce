@@ -165,13 +165,20 @@ module.exports = async function handler(req, res) {
     const latest = latestPnlPointFromPayload(json);
 
     if (!latest) {
+      const ts = json?.data?.account?.pnlTimeseries;
       return send(res, 200, {
         success: false,
         address,
         interval,
         error: 'No PNL timeseries point found',
         source: 'predict_graphql_GetAccountPnlTimeseries',
-        raw: json?.data?.account?.pnlTimeseries || null,
+        diag: {
+          hasData: !!json?.data,
+          accountPresent: json?.data ? json.data.account !== null && json.data.account !== undefined : false,
+          pnlTimeseriesPresent: !!ts,
+          edgeCount: Array.isArray(ts?.edges) ? ts.edges.length : null,
+        },
+        raw: json ?? null,
       });
     }
 
