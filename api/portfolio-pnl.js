@@ -1,115 +1,202 @@
 // Vercel Serverless Function: /api/portfolio-pnl
-// Proxies the official Predict.fun GraphQL GetAccountPnlTimeseries query and returns
-// the latest pnlTimeseries value as { pnlUsd, timestamp, cursor, source }.
-//
-// Env vars (all optional, sensible defaults below):
-//   PORTFOLIO_PNL_GRAPHQL_URL   GraphQL endpoint (default: https://api.predict.fun/graphql)
-//   PORTFOLIO_PNL_QUERY         Override the GraphQL query string
-//   PORTFOLIO_PNL_OPERATION     operationName (default: GetAccountPnlTimeseries)
-//   PREDICT_API_KEY             Forwarded as x-api-key if the GraphQL endpoint needs auth
-//
-// The response parser is intentionally tolerant: it accepts pnlTimeseries as an array
-// of points, or as { points: [...] }, and reads the LAST point's pnl-like field.
+// Proxies Predict.fun GraphQL GetAccountPnlTimeseries and returns the latest
+// pnlTimeseries point as { pnlUsd, timestamp, cursor, source }.
+// Official Portfolio PNL = latest edges[].node.y. Not positions.pnlUsd, not trade replay.
+// Optional env var: PREDICT_GRAPHQL_URL
 
-const DEFAULT_GRAPHQL_URL = 'https://api.predict.fun/graphql';
-const DEFAULT_OPERATION = 'GetAccountPnlTimeseries';
-const DEFAULT_QUERY = `query GetAccountPnlTimeseries($address: String!, $interval: PnlTimeseriesInterval!) {
-  pnlTimeseries(address: $address, interval: $interval) {
-    timestamp
-    pnlUsd
-    cursor
+const ETH_RE = /^0x[0-9a-fA-F]{40}$/;
+const DEFAULT_GRAPHQL_URL = 'https://graphql.predict.fun/graphql';
+
+const QUERY = `query GetAccountPnlTimeseries($address: Address!, $filter: TimeseriesFilterInput!, $pagination: ForwardPaginationInput) {
+  account(address: $address) {
+    pnlTimeseries(filter: $filter, pagination: $pagination) {
+      pageInfo {
+        hasNextPage
+        startCursor
+        endCursor
+      }
+      edges {
+        cursor
+        node {
+          x
+          y
+        }
+      }
+    }
   }
 }`;
 
-function sendJson(res, status, body) {
-  res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.end(JSON.stringify(body));
-}
+function send(res, status, body, extraHeaders = {}) {
+  res.statusCode = status;
 
-function firstQueryValue(value) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function toNum(value) {
-  if (value === null || value === undefined || value === '') return null;
-  const n = Number(String(value).replace(/,/g, ''));
-  return Number.isFinite(n) ? n : null;
-}
-
-// Pull the timeseries array out of common GraphQL response shapes.
-function extractSeries(data) {
-  const root = data && data.data ? data.data : data;
-  if (!root) return [];
-  let series = root.pnlTimeseries;
-  if (series && !Array.isArray(series) && Array.isArray(series.points)) series = series.points;
-  if (Array.isArray(series)) return series;
-  // Fallback: scan one level deep for an array whose items look like timeseries points.
-  for (const v of Object.values(root)) {
-    if (Array.isArray(v) && v.length && typeof v[0] === 'object') return v;
-    if (v && Array.isArray(v.points)) return v.points;
+  for (const [key, value] of Object.entries({
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Cache-Control': 'no-store',
+    ...extraHeaders,
+  })) {
+    res.setHeader(key, value);
   }
-  return [];
+
+  res.end(typeof body === 'string' ? body : JSON.stringify(body));
 }
 
-function pickPnl(point) {
-  if (!point || typeof point !== 'object') return null;
-  return toNum(point.pnlUsd) ?? toNum(point.pnl) ?? toNum(point.value) ?? toNum(point.cumulativePnlUsd) ?? toNum(point.realizedPnlUsd);
+function normalizeInterval(value) {
+  const interval = String(value || '_1D').trim();
+
+  // 目前按你抓到的官网请求默认用 _1D。
+  // 这里允许 _1H / _1D / _1W 这种格式，避免乱传。
+  if (/^_\d+[A-Z]$/.test(interval)) return interval;
+
+  return '_1D';
+}
+
+function latestPnlPointFromPayload(payload) {
+  const edges = payload?.data?.account?.pnlTimeseries?.edges;
+
+  if (!Array.isArray(edges) || edges.length === 0) {
+    return null;
+  }
+
+  const points = edges
+    .map(edge => {
+      const x = Number(edge?.node?.x ?? edge?.cursor);
+      const y = Number(edge?.node?.y);
+
+      return {
+        x,
+        y,
+        cursor: edge?.cursor ?? null,
+      };
+    })
+    .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+
+  if (!points.length) return null;
+
+  points.sort((a, b) => b.x - a.x);
+
+  return points[0];
+}
+
+async function fetchPnlTimeseries({ graphqlUrl, address, interval }) {
+  const body = {
+    query: QUERY,
+    variables: {
+      address,
+      filter: {
+        interval,
+      },
+    },
+    operationName: 'GetAccountPnlTimeseries',
+  };
+
+  const upstream = await fetch(graphqlUrl, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/graphql-response+json, application/json',
+      'Content-Type': 'application/json',
+      Origin: 'https://predict.fun',
+      Referer: 'https://predict.fun/',
+      'x-accept-language': 'zh-CN',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const text = await upstream.text();
+
+  let json = null;
+
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    const err = new Error('GraphQL returned non-JSON response');
+    err.status = upstream.status || 502;
+    err.raw = text.slice(0, 800);
+    throw err;
+  }
+
+  if (!upstream.ok || Array.isArray(json?.errors)) {
+    const err = new Error(
+      json?.errors?.[0]?.message ||
+      upstream.statusText ||
+      'GraphQL request failed'
+    );
+    err.status = upstream.status || 502;
+    err.raw = json;
+    throw err;
+  }
+
+  return json;
 }
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return sendJson(res, 405, { error: 'Method not allowed' });
+  if (req.method === 'OPTIONS') {
+    return send(res, 204, '');
   }
 
+  if (req.method !== 'GET') {
+    return send(res, 405, {
+      success: false,
+      error: 'Method not allowed',
+    });
+  }
+
+  const address = String(req.query.address || '').trim();
+  const interval = normalizeInterval(req.query.interval);
+
+  if (!ETH_RE.test(address)) {
+    return send(res, 400, {
+      success: false,
+      error: 'Invalid address',
+    });
+  }
+
+  const graphqlUrl = process.env.PREDICT_GRAPHQL_URL || DEFAULT_GRAPHQL_URL;
+
   try {
-    const address = String(firstQueryValue(req.query.address) || '').trim();
-    const interval = String(firstQueryValue(req.query.interval) || '_1D').trim();
-
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return sendJson(res, 400, { error: 'Missing or invalid address. Example: /api/portfolio-pnl?address=0x...&interval=_1D' });
-    }
-
-    const graphqlUrl = process.env.PORTFOLIO_PNL_GRAPHQL_URL || DEFAULT_GRAPHQL_URL;
-    const operationName = process.env.PORTFOLIO_PNL_OPERATION || DEFAULT_OPERATION;
-    const query = process.env.PORTFOLIO_PNL_QUERY || DEFAULT_QUERY;
-
-    const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-    if (process.env.PREDICT_API_KEY) headers['x-api-key'] = process.env.PREDICT_API_KEY;
-
-    const upstreamRes = await fetch(graphqlUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ operationName, query, variables: { address, interval } })
+    const json = await fetchPnlTimeseries({
+      graphqlUrl,
+      address,
+      interval,
     });
 
-    const text = await upstreamRes.text();
-    let json;
-    try { json = text ? JSON.parse(text) : null; }
-    catch { return sendJson(res, 502, { error: `Upstream returned non-JSON (HTTP ${upstreamRes.status})`, raw: text.slice(0, 300) }); }
+    const latest = latestPnlPointFromPayload(json);
 
-    if (json && Array.isArray(json.errors) && json.errors.length) {
-      return sendJson(res, 502, { error: json.errors.map(e => e && e.message).filter(Boolean).join('; ') || 'GraphQL error', raw: json });
+    if (!latest) {
+      return send(res, 200, {
+        success: false,
+        address,
+        interval,
+        error: 'No PNL timeseries point found',
+        source: 'predict_graphql_GetAccountPnlTimeseries',
+        raw: json?.data?.account?.pnlTimeseries || null,
+      });
     }
 
-    const series = extractSeries(json);
-    if (!series.length) {
-      return sendJson(res, 200, { pnlUsd: null, error: '未取到官网PNL（pnlTimeseries 为空）', source: operationName, raw: json });
-    }
+    return send(res, 200, {
+      success: true,
+      address,
+      interval,
 
-    const last = series[series.length - 1];
-    const pnlUsd = pickPnl(last);
-    const timestamp = toNum(last && (last.timestamp ?? last.time ?? last.ts));
-    const cursor = (last && (last.cursor ?? last.id)) || '';
+      // 这个就是官网 Portfolio 卡片口径的 PNL：
+      // GetAccountPnlTimeseries 最新 edges[].node.y
+      pnlUsd: latest.y,
 
-    return sendJson(res, 200, {
-      pnlUsd,
-      timestamp,
-      cursor,
-      source: `predict_graphql_${operationName}`,
-      ...(pnlUsd === null ? { error: '未取到官网PNL（最新点缺少 pnlUsd 字段）', raw: last } : {})
+      timestamp: latest.x,
+      cursor: latest.cursor,
+      source: 'predict_graphql_GetAccountPnlTimeseries',
+      raw: json?.data?.account?.pnlTimeseries || null,
     });
   } catch (err) {
-    sendJson(res, 500, { error: err && err.message ? err.message : String(err) });
+    return send(res, err?.status || 500, {
+      success: false,
+      address,
+      interval,
+      error: err?.message || 'Portfolio PNL proxy failed',
+      source: 'predict_graphql_GetAccountPnlTimeseries',
+      raw: err?.raw || null,
+    });
   }
 };
