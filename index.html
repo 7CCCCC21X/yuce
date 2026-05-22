@@ -1631,18 +1631,36 @@ https://bsc.drpc.org</textarea>
       renderAll();
     }
 
+    const EMPTY_PNL = { pnl: "", error: "" };
+
     async function queryWallet(wallet, selectedWeeks) {
-      const [pointsRes, holdingRes, balanceRes, pnlRes] = await Promise.allSettled([
+      const [pointsRes, holdingRes, balanceRes] = await Promise.allSettled([
         fetchWallet(wallet),
         fetchPositionValue(wallet),
-        fetchUsdtBalance(wallet),
-        fetchOfficialPortfolioPnl(wallet)
+        fetchUsdtBalance(wallet)
       ]);
       const holding = holdingRes.status === "fulfilled" ? holdingRes.value : { holding_amount_usdt: "", error: holdingRes.reason?.message || "持仓接口失败" };
       const balance = balanceRes.status === "fulfilled" ? balanceRes.value : { available_balance_usdt: "", error: balanceRes.reason?.message || "余额查询失败" };
-      const pnl = pnlRes.status === "fulfilled" ? pnlRes.value : { pnl: "", error: pnlRes.reason?.message || "官网PNL失败" };
-      if (pointsRes.status !== "fulfilled") return [buildErrorDetailRow(wallet, pointsRes.reason?.message || "积分接口失败", holding, balance, pnl)];
-      return buildRows(wallet, pointsRes.value, selectedWeeks, holding, balance, pnl);
+      if (pointsRes.status !== "fulfilled") return [buildErrorDetailRow(wallet, pointsRes.reason?.message || "积分接口失败", holding, balance, EMPTY_PNL)];
+      return buildRows(wallet, pointsRes.value, selectedWeeks, holding, balance, EMPTY_PNL);
+    }
+
+    // 官网 PNL 单独异步回填，不阻塞主结果渲染。
+    function patchWalletPnl(wallet, pnlValue) {
+      const s = state.summaryMap.get(wallet);
+      if (s) s.pnl = pnlValue;
+      for (const r of state.detailRows) if (r.wallet === wallet) r.pnl = pnlValue;
+    }
+
+    async function queryWalletPnl(wallet) {
+      if (!shouldQueryPnl()) return;
+      let res;
+      try { res = await fetchOfficialPortfolioPnl(wallet); }
+      catch { return; }
+      if (res && res.pnl !== "" && res.pnl !== null && res.pnl !== undefined) {
+        patchWalletPnl(wallet, res.pnl);
+        if ($("liveRender").checked) scheduleRender();
+      }
     }
 
     async function runQuery() {
@@ -1657,6 +1675,7 @@ https://bsc.drpc.org</textarea>
       setLog(`开始查询：${wallets.length} 个钱包，并发 ${concurrency}，周数：${selectedWeeks === null ? "全部周" : selectedWeeks.join(",")}，份额：${shouldQueryShares() ? "开" : "关"}，持仓：${shouldQueryHoldings() ? "开" : "关"}，余额：${shouldQueryBalance() ? "开" : "关"}，官网PNL：${shouldQueryPnl() ? "开" : "关"}`);
       renderAll();
       let cursor = 0;
+      const pnlPromises = [];
       async function worker() {
         while (!state.abort) {
           const idx = cursor++;
@@ -1668,6 +1687,7 @@ https://bsc.drpc.org</textarea>
             appendWalletRows(wallet, rows);
             if (rows.some(r => r.status === "ok" || r.status === "week_not_found")) state.successWallets += 1;
             else state.failedWallets += 1;
+            pnlPromises.push(queryWalletPnl(wallet));
             if ((idx + 1) % 50 === 0 || idx + 1 === wallets.length) log(`完成 ${idx + 1}/${wallets.length}: ${wallet}`);
           } catch (err) {
             const message = err && err.message ? err.message : String(err);
@@ -1685,6 +1705,7 @@ https://bsc.drpc.org</textarea>
       finally {
         state.running = false; $("startBtn").disabled = false; $("stopBtn").disabled = true;
         log(state.abort ? "已停止。" : "全部完成。"); scheduleRender(true);
+        Promise.allSettled(pnlPromises).then(() => { if (!state.abort) log("官网PNL 回填完成。"); scheduleRender(true); });
       }
     }
 
@@ -1799,6 +1820,7 @@ https://bsc.drpc.org</textarea>
       state.abort = false; state.running = true;
       $("startBtn").disabled = true; $("stopBtn").disabled = false;
       let cursor = 0;
+      const pnlPromises = [];
       async function worker() {
         while (!state.abort) {
           const idx = cursor++;
@@ -1809,6 +1831,7 @@ https://bsc.drpc.org</textarea>
             appendWalletRows(wallet, rows);
             if (rows.some(r => r.status === "ok" || r.status === "week_not_found")) state.successWallets += 1;
             else state.failedWallets += 1;
+            pnlPromises.push(queryWalletPnl(wallet));
           } catch (err) {
             const message = err && err.message ? err.message : String(err);
             appendWalletRows(wallet, [buildErrorDetailRow(wallet, message)]);
@@ -1825,6 +1848,7 @@ https://bsc.drpc.org</textarea>
       finally {
         state.running = false; $("startBtn").disabled = false; $("stopBtn").disabled = true;
         log(state.abort ? "重试已停止。" : "重试完成。"); scheduleRender(true);
+        Promise.allSettled(pnlPromises).then(() => scheduleRender(true));
       }
     });
 
