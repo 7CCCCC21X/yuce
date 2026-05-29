@@ -321,7 +321,7 @@
 <body>
   <div class="wrap">
     <h1>OPINX Predict 积分批量查询（持仓金额 + USDT 可用余额）</h1>
-    <div class="subtitle">将多个地址按行粘贴。持仓金额走 Vercel 同域代理 /api/predict（API Key 从 Vercel 环境变量读取）；可用余额走 BSC USDT 合约 balanceOf。点击钱包地址打开 Debank BSC 历史记录。</div>
+    <div class="subtitle">将多个地址按行粘贴。持仓金额走 Vercel 同域代理 /api/predict（API Key 从 Vercel 环境变量读取）；可用余额走 BSC USDT 合约 balanceOf。点击钱包地址打开 Predict.fun 钱包持仓页。</div>
 
     <div class="section">
       <div class="section-title"><span>批量输入</span><span class="section-line"></span></div>
@@ -871,7 +871,7 @@ https://bsc.drpc.org</textarea>
     }
 
     function shortWallet(addr) { return addr && addr.length >= 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : (addr || ""); }
-    function debankHistoryUrl(wallet) { return `https://debank.com/profile/${encodeURIComponent(String(wallet || "").toLowerCase())}/history?chain=bsc`; }
+    function debankHistoryUrl(wallet) { return `https://predict.fun/zh-cn/portfolio/${encodeURIComponent(String(wallet || "").toLowerCase())}`; }
 
     function applyProxy(realUrl) {
       const proxyPrefix = $("proxyPrefix").value.trim();
