@@ -85,12 +85,25 @@ function send(res, status, body, extraHeaders = {}) {
 async function predictGraphql({ query, variables, operationName }) {
   const graphqlUrl = process.env.PREDICT_GRAPHQL_URL || DEFAULT_GRAPHQL_URL;
 
+  // predict.fun fronts its GraphQL with Cloudflare-style protection. A bare
+  // server-side fetch (no User-Agent / sec-* headers) gets bounced with a 404,
+  // even though the browser request to the same URL returns 200. Mirror the
+  // browser request headers so the proxy looks like a real Chrome client.
   const headers = {
     Accept: 'application/graphql-response+json, application/json',
     'Content-Type': 'application/json',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
     Origin: 'https://predict.fun',
     Referer: 'https://predict.fun/',
     'x-accept-language': 'zh-CN',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
+    'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'empty',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-site': 'same-site',
+    priority: 'u=1, i',
   };
   // Predict.fun's GraphQL appears to gate account-scoped data behind a session.
   // Forward a token / cookie when provided so the proxy can act as a logged-in client.
@@ -119,8 +132,15 @@ async function predictGraphql({ query, variables, operationName }) {
   }
 
   if (!upstream.ok || Array.isArray(json?.errors)) {
+    const gqlMsg = json?.errors?.[0]?.message;
+    // 404 / 403 from upstream almost always means the request was rejected before
+    // it reached the GraphQL resolver — usually a missing logged-in session.
+    const authHint = (upstream.status === 404 || upstream.status === 403) && !gqlMsg
+      ? `Predict.fun 拒绝了请求(HTTP ${upstream.status})，通常是缺少登录态，请在 Vercel 配置 PREDICT_GRAPHQL_COOKIE / PREDICT_GRAPHQL_AUTH`
+      : null;
     const err = new Error(
-      json?.errors?.[0]?.message ||
+      gqlMsg ||
+      authHint ||
       upstream.statusText ||
       'GraphQL request failed'
     );
