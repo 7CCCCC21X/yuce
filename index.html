@@ -469,18 +469,18 @@
         </div>
 
         <div>
-          <label class="checkbox" style="margin-top:24px;"><input id="queryHoldings" type="checkbox" checked />查询持仓金额</label>
-          <div class="help">走 Predict Position API，累加 valueUsd。</div>
+          <label class="checkbox" style="margin-top:24px;"><input id="queryHoldings" type="checkbox" checked />查询持仓金额 + 用户名</label>
+          <div class="help">官网口径：GraphQL GetPortfolio 的 statistics.positionsValueUsd（同时返回用户名 name）。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="positionApiTemplate">持仓 API 模板</label>
-          <input id="positionApiTemplate" type="text" value="/api/predict?network=mainnet&amp;path=/v1/positions/{wallet}" />
-          <div class="help">默认走 Vercel 同域代理 /api/predict；代理在服务端读取 PREDICT_API_KEY，不会暴露到前端。</div>
+          <input id="positionApiTemplate" type="text" value="/api/portfolio?address={wallet}" />
+          <div class="help">默认走同域代理 /api/portfolio；服务端转发到 Predict.fun GraphQL GetPortfolio，返回官网展示的持仓金额(positionsValueUsd)和用户名(name)。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="positionValuePaths">持仓金额字段路径</label>
-          <input id="positionValuePaths" type="text" value="data[].valueUsd,data[].currentValueUsd,data[].value_usd,data[].current_value_usd,result.list[].currentValueInQuoteToken,result.list[].valueUsd,positions[].valueUsd,list[].valueUsd" />
-          <div class="help">多个路径用英文逗号分隔。默认兼容 Predict valueUsd 与 Opinion currentValueInQuoteToken。</div>
+          <input id="positionValuePaths" type="text" value="positionsValueUsd,statistics.positionsValueUsd,data.statistics.positionsValueUsd,data.account.statistics.positionsValueUsd" />
+          <div class="help">多个路径用英文逗号分隔。默认取 GetPortfolio 的 positionsValueUsd（即官网 Portfolio 卡片显示的持仓金额）。</div>
         </div>
 
         <div>
@@ -630,6 +630,7 @@ https://bsc.drpc.org</textarea>
 
     const detailColumns = [
       ["wallet", "钱包"],
+      ["name", "用户名"],
       ["status", "状态"],
       ["week", "周"],
       ["calculated", "已结算"],
@@ -659,6 +660,7 @@ https://bsc.drpc.org</textarea>
 
     const summaryColumns = [
       ["wallet", "钱包"],
+      ["name", "用户名"],
       ["status", "状态"],
       ["points", "选中周积分"],
       ["cost_usdt", "手续费"],
@@ -1000,74 +1002,31 @@ https://bsc.drpc.org</textarea>
     }
 
 
-    // 从单页响应里取出本页所有持仓的金额（valueUsd）。
-    function positionValuesFromPage(data, pathText) {
-      let values = valuesFromPathText(data, pathText);
-      if (!values.length && Array.isArray(data)) values = data.map(x => normalizeDecimal(x.valueUsd ?? x.value_usd ?? x.currentValueUsd ?? x.current_value_usd ?? "0"));
-      if (!values.length) {
-        const arr = firstValueFromPaths(data, ["data", "positions", "result.list", "list", "result"]);
-        if (Array.isArray(arr)) values = arr.map(x => normalizeDecimal(x.valueUsd ?? x.value_usd ?? x.currentValueUsd ?? x.current_value_usd ?? x.currentValueInQuoteToken ?? "0"));
-      }
-      return values;
-    }
-
-    // 官方 /v1/positions 走 Relay 游标分页（query 参数 first / after）。
-    // 解析出 hasNextPage 和下一页游标，兼容常见的几种返回结构。
-    function positionPageInfo(data) {
-      const candidates = [data?.pageInfo, data?.data?.pageInfo, data?.pagination, data?.meta?.pageInfo, data?.meta, data];
-      for (const c of candidates) {
-        if (!c || typeof c !== "object" || Array.isArray(c)) continue;
-        const hasNextRaw = c.hasNextPage ?? c.has_next_page ?? c.hasMore ?? c.has_more;
-        const cursorRaw = c.endCursor ?? c.end_cursor ?? c.nextCursor ?? c.next_cursor ?? c.cursor;
-        if (hasNextRaw === undefined && cursorRaw === undefined) continue;
-        return {
-          hasNext: hasNextRaw === true || hasNextRaw === "true",
-          cursor: cursorRaw != null && cursorRaw !== "" ? String(cursorRaw) : "",
-        };
-      }
-      return { hasNext: false, cursor: "" };
-    }
-
-    function appendQueryParam(url, key, value) {
-      const sep = url.includes("?") ? "&" : "?";
-      return `${url}${sep}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
-    }
-
     async function fetchPositionValue(wallet) {
-      if (!shouldQueryHoldings()) return { holding_amount_usdt: "", position_count: "", error: "" };
+      if (!shouldQueryHoldings()) return { holding_amount_usdt: "", name: "", error: "" };
       try {
-        const baseUrl = makePositionUrl(wallet);
-        const pathText = $("positionValuePaths").value || "data[].valueUsd";
-        // 持仓接口是游标分页的：只取第一页会漏掉后面的持仓，导致汇总金额偏小。
-        // 这里跟着 endCursor 一直翻页，把每一页的 valueUsd 全部累加。
-        const PAGE_SIZE = 100;
-        const MAX_PAGES = 200; // 安全上限，避免异常情况下死循环。
-        const allValues = [];
-        let after = "";
-        let pages = 0;
-        let sawData = false;
-        while (pages < MAX_PAGES) {
-          if (state.abort) throw new Error("已停止");
-          let url = appendQueryParam(baseUrl, "first", String(PAGE_SIZE));
-          if (after) url = appendQueryParam(url, "after", after);
-          const data = await fetchWithRetries(url);
-          if (data != null) sawData = true;
-          allValues.push(...positionValuesFromPage(data, pathText));
-          pages++;
-          const info = positionPageInfo(data);
-          if (!info.hasNext || !info.cursor || info.cursor === after) break;
-          after = info.cursor;
+        const data = await fetchWithRetries(makePositionUrl(wallet));
+        const pathText = $("positionValuePaths").value || "positionsValueUsd";
+        // 官网口径的「持仓金额」就是 GetPortfolio 的 statistics.positionsValueUsd，
+        // 不是把每笔 /v1/positions 的 valueUsd 相加。
+        let values = valuesFromPathText(data, pathText);
+        if (!values.length) {
+          const v = firstValueFromPaths(data, ["positionsValueUsd", "statistics.positionsValueUsd", "data.statistics.positionsValueUsd", "data.account.statistics.positionsValueUsd"]);
+          if (v !== undefined && v !== null && v !== "") values = [normalizeDecimal(v)];
         }
-        if (!allValues.length) {
-          return sawData
-            ? { holding_amount_usdt: "", position_count: "", error: "持仓接口返回了数据，但没有按字段路径取到持仓金额" }
-            : { holding_amount_usdt: "", position_count: "", error: "持仓接口未返回数据" };
+        // 用户名（官网展示的 name）。
+        const nameRaw = firstValueFromPaths(data, ["name", "account.name", "data.name", "data.account.name"]);
+        const name = nameRaw !== undefined && nameRaw !== null ? String(nameRaw) : "";
+        if (!values.length) {
+          const err = data && data.error ? String(data.error) : "持仓接口返回了数据，但没有取到持仓金额(positionsValueUsd)";
+          return { holding_amount_usdt: "", name, error: err };
         }
-        return { holding_amount_usdt: decimalSum(allValues), position_count: String(allValues.length), error: "" };
+        // 正常情况下 positionsValueUsd 是单个数值；decimalSum 兼容路径命中多个值的情况。
+        return { holding_amount_usdt: decimalSum(values), name, error: "" };
       } catch (err) {
         const message = err && err.message ? err.message : String(err);
         if (state.abort || message === "已停止") throw err;
-        return { holding_amount_usdt: "", position_count: "", error: `持仓接口失败: ${message}` };
+        return { holding_amount_usdt: "", name: "", error: `持仓接口失败: ${message}` };
       }
     }
 
@@ -1189,7 +1148,8 @@ https://bsc.drpc.org</textarea>
       const pnl = pnlResult && pnlResult.pnl !== "" && pnlResult.pnl !== undefined && pnlResult.pnl !== null ? normalizeDecimal(pnlResult.pnl) : "";
       let net = "";
       if (holding !== "" || balance !== "") net = decimalAdd(holding || "0", balance || "0");
-      return { holding_amount_usdt: holding, available_balance_usdt: balance, net_asset_usdt: net, pnl };
+      const name = holdingResult && holdingResult.name ? String(holdingResult.name) : "";
+      return { name, holding_amount_usdt: holding, available_balance_usdt: balance, net_asset_usdt: net, pnl };
     }
 
     async function buildRows(wallet, data, selectedWeeks, holdingResult, balanceResult, pnlResult) {
@@ -1284,13 +1244,14 @@ https://bsc.drpc.org</textarea>
         const wallet = row.wallet;
         if (!map.has(wallet)) {
           map.set(wallet, {
-            wallet, status: row.status === "error" ? "error" : "ok", total_points: row.total_points || "0", selected_weeks: [], calculated_all: "true",
+            wallet, name: "", status: row.status === "error" ? "error" : "ok", total_points: row.total_points || "0", selected_weeks: [], calculated_all: "true",
             trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
             paid_fee_usdt: "0", cost_usdt: "0", points: "0", referral_points: "0",
             holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", pnl: "", error: ""
           });
         }
         const s = map.get(wallet);
+        if (row.name) s.name = String(row.name);
         if (row.holding_amount_usdt !== "" && row.holding_amount_usdt !== undefined && row.holding_amount_usdt !== null) s.holding_amount_usdt = normalizeDecimal(row.holding_amount_usdt);
         if (row.available_balance_usdt !== "" && row.available_balance_usdt !== undefined && row.available_balance_usdt !== null) s.available_balance_usdt = normalizeDecimal(row.available_balance_usdt);
         if (row.pnl !== "" && row.pnl !== undefined && row.pnl !== null) s.pnl = normalizeDecimal(row.pnl);
