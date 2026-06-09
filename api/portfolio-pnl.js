@@ -2,9 +2,13 @@
 // Proxies Predict.fun GraphQL GetAccountPnlTimeseries and returns the latest
 // pnlTimeseries point as { pnlUsd, timestamp, cursor, source }.
 // Official Portfolio PNL = latest edges[].node.y. Not positions.pnlUsd, not trade replay.
+//
+// Response envelope: { success, address, interval, ...fields, error?, source }.
+// `raw` (upstream timeseries) is only included when called with ?debug=1.
+//
 // Optional env vars: PREDICT_GRAPHQL_URL, PREDICT_GRAPHQL_AUTH, PREDICT_GRAPHQL_COOKIE
 
-const { ETH_RE, toChecksumAddress, send, predictGraphql } = require('./_predict-graphql');
+const { ETH_RE, toChecksumAddress, send, predictGraphql, logError } = require('./_predict-graphql');
 
 const QUERY = `query GetAccountPnlTimeseries($address: Address!, $filter: TimeseriesFilterInput!, $pagination: ForwardPaginationInput) {
   account(address: $address) {
@@ -76,6 +80,7 @@ module.exports = async function handler(req, res) {
 
   const rawAddress = String(req.query.address || '').trim();
   const interval = normalizeInterval(req.query.interval);
+  const debug = String(req.query.debug || '') === '1';
 
   if (!ETH_RE.test(rawAddress)) {
     return send(res, 400, {
@@ -113,7 +118,7 @@ module.exports = async function handler(req, res) {
           pnlTimeseriesPresent: !!ts,
           edgeCount: Array.isArray(ts?.edges) ? ts.edges.length : null,
         },
-        raw: json ?? null,
+        ...(debug ? { raw: json ?? null } : {}),
       });
     }
 
@@ -129,16 +134,22 @@ module.exports = async function handler(req, res) {
       timestamp: latest.x,
       cursor: latest.cursor,
       source: 'predict_graphql_GetAccountPnlTimeseries',
-      raw: json?.data?.account?.pnlTimeseries || null,
+      ...(debug ? { raw: json?.data?.account?.pnlTimeseries || null } : {}),
     });
   } catch (err) {
+    logError('portfolio-pnl', {
+      address,
+      interval,
+      status: err?.status || 500,
+      message: err?.message || 'Portfolio PNL proxy failed',
+    });
     return send(res, err?.status || 500, {
       success: false,
       address,
       interval,
       error: err?.message || 'Portfolio PNL proxy failed',
       source: 'predict_graphql_GetAccountPnlTimeseries',
-      raw: err?.raw || null,
+      ...(debug ? { raw: err?.raw || null } : {}),
     });
   }
 };
