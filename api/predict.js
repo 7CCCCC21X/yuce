@@ -1,14 +1,12 @@
 // Vercel Serverless Function: /api/predict
 // Reads Predict.fun API key from Vercel environment variables and proxies allowed GET requests.
 // Required env var on mainnet: PREDICT_API_KEY
-// Optional env vars: PREDICT_API_BASE, PREDICT_TESTNET_API_BASE, PREDICT_TESTNET_API_KEY
+// Optional env vars: PREDICT_API_BASE, PREDICT_TESTNET_API_BASE, PREDICT_TESTNET_API_KEY,
+// PREDICT_UPSTREAM_TIMEOUT_MS
+
+const { send, UPSTREAM_TIMEOUT_MS, logError } = require('./_predict-graphql');
 
 const DEFAULT_MAINNET_BASE = 'https://api.predict.fun';
-
-function sendJson(res, status, body) {
-  res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.end(JSON.stringify(body));
-}
 
 function firstQueryValue(value) {
   return Array.isArray(value) ? value[0] : value;
@@ -21,7 +19,7 @@ function isAllowedPath(path) {
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
-    return sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    return send(res, 405, { success: false, error: 'Method not allowed' });
   }
 
   try {
@@ -29,11 +27,11 @@ module.exports = async function handler(req, res) {
     const path = String(firstQueryValue(req.query.path) || '');
 
     if (!path.startsWith('/')) {
-      return sendJson(res, 400, { success: false, error: 'Missing or invalid path. Example: /api/predict?path=/v1/positions/0x...' });
+      return send(res, 400, { success: false, error: 'Missing or invalid path. Example: /api/predict?path=/v1/positions/0x...' });
     }
 
     if (!isAllowedPath(path)) {
-      return sendJson(res, 400, { success: false, error: 'Path is not allowed by this proxy' });
+      return send(res, 400, { success: false, error: 'Path is not allowed by this proxy' });
     }
 
     const base = network === 'testnet'
@@ -58,15 +56,35 @@ module.exports = async function handler(req, res) {
     const headers = { Accept: 'application/json' };
     if (apiKey) headers['x-api-key'] = apiKey;
 
-    const upstreamRes = await fetch(upstream.toString(), { method: 'GET', headers });
+    let upstreamRes;
+    try {
+      upstreamRes = await fetch(upstream.toString(), {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+    } catch (e) {
+      const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      logError('predict', { path, network, message: timedOut ? 'upstream timeout' : (e?.message || 'fetch failed') });
+      return send(res, 504, {
+        success: false,
+        error: timedOut ? `Upstream timed out after ${UPSTREAM_TIMEOUT_MS}ms` : (e?.message || 'Upstream fetch failed'),
+      });
+    }
+
     const text = await upstreamRes.text();
 
-    res.status(upstreamRes.status);
+    if (!upstreamRes.ok) {
+      logError('predict', { path, network, status: upstreamRes.status, message: upstreamRes.statusText });
+    }
+
+    res.statusCode = upstreamRes.status;
     res.setHeader('Content-Type', upstreamRes.headers.get('content-type') || 'application/json; charset=utf-8');
-    // Optional: keep browser cache off because balances/positions are time-sensitive.
+    // Keep browser cache off because balances/positions are time-sensitive.
     res.setHeader('Cache-Control', 'no-store');
     res.end(text);
   } catch (err) {
-    sendJson(res, 500, { success: false, error: err && err.message ? err.message : String(err) });
+    logError('predict', { message: err?.message || String(err) });
+    send(res, 500, { success: false, error: err && err.message ? err.message : String(err) });
   }
 };

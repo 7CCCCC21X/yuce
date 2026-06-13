@@ -1,10 +1,25 @@
 // Shared helpers for Predict.fun GraphQL proxy serverless functions.
 // Files/dirs prefixed with "_" are excluded from Vercel routing, so this is a
 // plain module (not an endpoint). Used by /api/portfolio and /api/portfolio-pnl.
-// Optional env vars: PREDICT_GRAPHQL_URL, PREDICT_GRAPHQL_AUTH, PREDICT_GRAPHQL_COOKIE
+// Optional env vars: PREDICT_GRAPHQL_URL, PREDICT_GRAPHQL_AUTH,
+// PREDICT_GRAPHQL_COOKIE, PREDICT_UPSTREAM_TIMEOUT_MS
 
 const ETH_RE = /^0x[0-9a-fA-F]{40}$/;
 const DEFAULT_GRAPHQL_URL = 'https://graphql.predict.fun/graphql';
+
+// Upstream fetch timeout. Keep it well under the function maxDuration so we
+// fail with a clear error instead of eating the whole platform timeout.
+const UPSTREAM_TIMEOUT_MS = Math.max(1000, Number(process.env.PREDICT_UPSTREAM_TIMEOUT_MS || 8000));
+const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
+
+// Structured error logging for Vercel logs. Never log credentials.
+function logError(scope, details) {
+  try {
+    console.error(JSON.stringify({ level: 'error', scope, ...details }));
+  } catch {
+    console.error(scope, details);
+  }
+}
 
 // Predict.fun GraphQL `account(address: Address!)` resolves to null for a
 // lowercase address; it needs the EIP-55 checksummed form. Compute it here so
@@ -63,14 +78,13 @@ function toChecksumAddress(address) {
   return out;
 }
 
+// Unified JSON response. The page calls these endpoints same-origin, so no
+// CORS headers are emitted; balances/positions are time-sensitive → no-store.
 function send(res, status, body, extraHeaders = {}) {
   res.statusCode = status;
 
   for (const [key, value] of Object.entries({
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
     'Cache-Control': 'no-store',
     ...extraHeaders,
   })) {
@@ -80,7 +94,12 @@ function send(res, status, body, extraHeaders = {}) {
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
 }
 
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+let warnedAnonymous = false;
+
 // POSTs a GraphQL operation to Predict.fun and returns the parsed JSON.
+// Retries once on retryable upstream status / network error.
 // Throws an Error with `.status` and `.raw` on transport / GraphQL errors.
 async function predictGraphql({ query, variables, operationName }) {
   const graphqlUrl = process.env.PREDICT_GRAPHQL_URL || DEFAULT_GRAPHQL_URL;
@@ -99,13 +118,43 @@ async function predictGraphql({ query, variables, operationName }) {
   if (process.env.PREDICT_GRAPHQL_AUTH) headers.Authorization = process.env.PREDICT_GRAPHQL_AUTH;
   if (process.env.PREDICT_GRAPHQL_COOKIE) headers.Cookie = process.env.PREDICT_GRAPHQL_COOKIE;
 
-  const upstream = await fetch(graphqlUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ query, variables, operationName }),
-  });
+  if (!process.env.PREDICT_GRAPHQL_AUTH && !process.env.PREDICT_GRAPHQL_COOKIE && !warnedAnonymous) {
+    warnedAnonymous = true;
+    console.warn('[predict-graphql] PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE not configured; requesting upstream anonymously. Account-scoped fields may be unavailable.');
+  }
+
+  let upstream = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      upstream = await fetch(graphqlUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query, variables, operationName }),
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+    } catch (e) {
+      if (attempt === 0) { await sleep(500); continue; }
+      const timedOut = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      const err = new Error(timedOut
+        ? `GraphQL upstream timed out after ${UPSTREAM_TIMEOUT_MS}ms`
+        : (e && e.message ? e.message : 'GraphQL upstream fetch failed'));
+      err.status = 504;
+      throw err;
+    }
+    if (RETRYABLE_STATUS.has(upstream.status) && attempt === 0) { await sleep(500); continue; }
+    break;
+  }
 
   const text = await upstream.text();
+
+  // Session credentials (cookie / auth token) expire; surface that clearly so
+  // the operator knows to refresh the env vars instead of guessing.
+  if (upstream.status === 401 || upstream.status === 403) {
+    const err = new Error(`Upstream rejected the session (HTTP ${upstream.status}). PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE may be missing or expired — refresh them in the Vercel env vars.`);
+    err.status = 502;
+    err.raw = text.slice(0, 800);
+    throw err;
+  }
 
   let json = null;
 
@@ -135,7 +184,10 @@ async function predictGraphql({ query, variables, operationName }) {
 module.exports = {
   ETH_RE,
   DEFAULT_GRAPHQL_URL,
+  UPSTREAM_TIMEOUT_MS,
+  keccak256,
   toChecksumAddress,
   send,
   predictGraphql,
+  logError,
 };
