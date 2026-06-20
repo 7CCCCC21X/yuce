@@ -6,6 +6,16 @@ import { setWeekSelection, isAllWeeksSelected } from "./week.js";
 
 const STORAGE_KEY = "yuce.config.v1";
 
+// 钱包列表是一次性输入，而不是长期配置。地址非常多时（比如几万个），把整段
+// 文本反复写进 localStorage 会让每次打开页面都要解析、回填、重扫上 MB 的文本，
+// 每次输入又要同步重写整块数据，从而明显卡顿。超过此阈值就不再持久化钱包列表
+// （其余配置照常保存）。约 2300 个地址。
+export const MAX_PERSISTED_WALLETS_CHARS = 100000;
+
+export function walletsTooLargeToPersist(value) {
+  return typeof value === "string" && value.length > MAX_PERSISTED_WALLETS_CHARS;
+}
+
 const VALUE_IDS = [
   "wallets",
   "concurrency", "retries", "maxQps", "timeoutMs",
@@ -41,7 +51,12 @@ export function applyConfig(cfg) {
 }
 
 export function saveConfig() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotConfig())); }
+  try {
+    const cfg = snapshotConfig();
+    // 钱包列表过大时不写入本地存储，避免下次打开 / 后续输入时卡顿。
+    if (walletsTooLargeToPersist(cfg.values.wallets)) delete cfg.values.wallets;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  }
   catch { /* localStorage 不可用 / 满，静默忽略 */ }
 }
 
@@ -51,7 +66,13 @@ export function loadConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return false;
-    applyConfig(JSON.parse(raw));
+    const cfg = JSON.parse(raw);
+    // 兼容旧版本：清理早先存进来的超大钱包列表，否则它会被反复回填导致卡顿。
+    if (cfg && cfg.values && walletsTooLargeToPersist(cfg.values.wallets)) {
+      delete cfg.values.wallets;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {}
+    }
+    applyConfig(cfg);
     return true;
   } catch { return false; }
 }
