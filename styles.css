@@ -281,6 +281,11 @@ details.advanced[open] > summary { margin-bottom: 10px; }
 details.advanced .row-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
 details.advanced .row-grid input, details.advanced .row-grid textarea, details.advanced .row-grid select { width: 100%; }
 .config-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 4px; border-top: 1px dashed var(--line); }
+/* 查询全部结束后，存在失败钱包时显示的重试横幅。 */
+.retry-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 4px; padding: 10px 14px; background: linear-gradient(90deg, rgba(200,60,60,.10), rgba(200,60,60,0)); border: 1px solid rgba(200,60,60,.28); border-left: 3px solid var(--bad); border-radius: 4px; font-size: 13px; font-weight: 600; }
+.retry-banner[hidden] { display: none; }
+.retry-banner button { margin-left: auto; }
+
 .best-panel { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 10px 0 4px; padding: 10px 14px; background: linear-gradient(90deg, rgba(20,122,61,.10), rgba(20,122,61,0)); border: 1px solid rgba(20,122,61,.28); border-left: 3px solid var(--ok); border-radius: 4px; font-size: 13px; }
 .best-panel .best-tag { background: var(--ok); color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: .3px; }
 .best-panel .best-addr { display: inline-block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; background: rgba(255,255,255,.6); padding: 2px 8px; border-radius: 3px; border: 1px solid var(--line); font-size: 12px; }
