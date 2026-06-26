@@ -86,7 +86,7 @@ export const summaryColumns = [
   ["name", "用户名"],
   ["status", "状态"],
   ["points", "选中周积分"],
-  ["cost_usdt", "手续费"],
+  ["cost_usdt", "选中周手续费"],
   ["cost_per_point", "积分成本 $/积分"],
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],
