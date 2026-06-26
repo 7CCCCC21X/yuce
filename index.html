@@ -107,6 +107,10 @@
           <div class="stat-value" id="statTrades">0</div>
         </div>
       </div>
+      <div id="retryBanner" class="retry-banner" hidden>
+        <span id="retryBannerText">查询完成，有钱包查询失败。</span>
+        <button id="retryFailedBtn" class="bad" type="button">重试失败</button>
+      </div>
     </div>
 
     <div id="bestPanel" class="best-panel" hidden>
@@ -250,7 +254,6 @@ https://bsc.drpc.org</textarea>
       <div class="tableBar">
         <input id="filterInput" type="search" placeholder="按用户名、钱包、状态、错误信息、周数过滤..." />
         <div class="rowCount" id="rowCount">0 行</div>
-        <button id="retryFailedBtn" class="bad" type="button" style="display:none">重试失败</button>
         <select id="sortPresetSelect" title="推荐排序">
           <option value="cost_per_point:asc">积分成本最低</option>
           <option value="points:desc">积分最多</option>

@@ -358,11 +358,14 @@ export function updateStats() {
   const retryFailed = $("retryFailedLink");
   if (viewFailed) viewFailed.style.display = state.failedWallets > 0 ? "" : "none";
   if (retryFailed) retryFailed.style.display = state.failedWallets > 0 && !state.running ? "" : "none";
+  // 全部查询结束后（非运行中）且存在失败时，显示醒目的「重试失败」横幅。
+  const showRetry = state.failedWallets > 0 && !state.running;
+  const retryBanner = $("retryBanner");
+  if (retryBanner) retryBanner.hidden = !showRetry;
+  const retryBannerText = $("retryBannerText");
+  if (retryBannerText) retryBannerText.textContent = `查询完成，有 ${state.failedWallets} 个钱包查询失败。`;
   const retryFailedBtn = $("retryFailedBtn");
-  if (retryFailedBtn) {
-    retryFailedBtn.style.display = state.failedWallets > 0 && !state.running ? "" : "none";
-    retryFailedBtn.textContent = `重试失败 (${state.failedWallets})`;
-  }
+  if (retryFailedBtn) retryFailedBtn.textContent = `重试失败 (${state.failedWallets})`;
 }
 
 // ---------- 筛选 chips ----------
