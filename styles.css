@@ -290,6 +290,9 @@ td.wallet { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 td.wallet .walletInner { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
 td.wallet a.walletLink { display: inline-block; max-width: 126px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); text-decoration: underline; font-size: 13px; }
 td.wallet a.walletLink:hover { color: var(--accent-hover); }
+/* 用户名身份列：用常规字体（非等宽），给用户名多一点显示宽度。 */
+td.name-cell { font-family: inherit; }
+td.name-cell a.walletLink { font-family: inherit; max-width: 168px; }
 tr.best-row { background: linear-gradient(90deg, rgba(20,122,61,.09), rgba(20,122,61,0) 65%); }
 tr.best-row:hover { background: linear-gradient(90deg, rgba(20,122,61,.14), rgba(20,122,61,0) 65%); }
 td.money { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }

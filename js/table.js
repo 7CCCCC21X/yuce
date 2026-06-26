@@ -44,6 +44,8 @@ export function filterRows(rows, tableKey) {
   if (state.maxNetAsset > 0) result = result.filter(r => num(r.net_asset_usdt) <= state.maxNetAsset);
   if (state.maxReferralPoints > 0) result = result.filter(r => num(r.referral_points) <= state.maxReferralPoints);
   if (state.maxCpp > 0) result = result.filter(r => isValidCpp(r.cost_per_point) && Number(r.cost_per_point) <= state.maxCpp);
+  if (state.maxCost > 0) result = result.filter(r => num(r.cost_usdt) <= state.maxCost);
+  if (state.maxAllFee > 0) result = result.filter(r => r.all_fee_usdt !== "" && r.all_fee_usdt !== undefined && r.all_fee_usdt !== null && num(r.all_fee_usdt) <= state.maxAllFee);
   const q = state.filterText.trim().toLowerCase();
   if (!q) return result;
   return result.filter(row => rowSearchText(row).includes(q));
@@ -88,6 +90,7 @@ function cellClass(key, value) {
   if (key === "status") return "status-cell";
   if (key === "calculated" || key === "calculated_all") { if (value === "true") return "ok"; if (value === "false") return "warnText"; }
   if (key === "wallet") return "wallet";
+  if (key === "name") return "wallet name-cell";
   if (PNL_KEYS.has(key)) {
     if (value === "" || value === undefined || value === null) return "money";
     const n = Number(value);
@@ -112,7 +115,24 @@ function statusBadgeTone(value) {
   return "muted";
 }
 
-function renderCellValue(td, key, value) {
+function renderCellValue(td, key, value, row) {
+  if (key === "name") {
+    // 身份列：显示用户名（无则回退为缩写地址），点击跳转该钱包的 Predict 持仓页；
+    // 旁边保留一个复制按钮，复制完整地址。
+    td.innerHTML = "";
+    const wallet = (row && row.wallet) || "";
+    const wrap = document.createElement("span"); wrap.className = "walletInner";
+    const link = document.createElement("a"); link.className = "walletLink";
+    link.textContent = value ? String(value) : (wallet ? shortWallet(wallet) : "—");
+    link.title = wallet || (value ? String(value) : "");
+    if (wallet) { link.href = walletPortfolioUrl(wallet); link.target = "_blank"; link.rel = "noopener noreferrer"; }
+    wrap.appendChild(link);
+    if (wallet) {
+      const btn = document.createElement("button"); btn.className = "copyBtn"; btn.type = "button"; btn.textContent = "复制"; btn.dataset.wallet = wallet;
+      wrap.appendChild(btn);
+    }
+    td.appendChild(wrap); return;
+  }
   if (key === "status") {
     td.innerHTML = "";
     const badge = document.createElement("span");
@@ -196,7 +216,7 @@ export function renderTable(containerId, rows, columns, tableKey, precomputed = 
     const idxTd = document.createElement("td"); idxTd.textContent = String(i + 1); tr.appendChild(idxTd);
     for (const [key] of columns) {
       const td = document.createElement("td"); const value = row[key] ?? "";
-      renderCellValue(td, key, value);
+      renderCellValue(td, key, value, row);
       const cls = cellClass(key, value); if (cls) td.className = td.className ? `${td.className} ${cls}` : cls;
       tr.appendChild(td);
     }
@@ -277,9 +297,11 @@ export function updateStats() {
   }
   let totalHolding = 0, holdingCount = 0, totalBalance = 0, balanceCount = 0, totalNet = 0, netCount = 0;
   let totalTotalPoints = 0, totalPointsCount = 0, totalPnl = 0, pnlCount = 0, okCount = 0;
+  let totalAllFee = 0, allFeeCount = 0;
   for (const r of state.summaryRows) {
     if (r.status !== "ok") continue;
     okCount += 1;
+    if (r.all_fee_usdt !== "" && r.all_fee_usdt !== undefined && r.all_fee_usdt !== null) { totalAllFee += num(r.all_fee_usdt); allFeeCount += 1; }
     if (r.holding_amount_usdt !== "" && r.holding_amount_usdt !== undefined && r.holding_amount_usdt !== null) { totalHolding += num(r.holding_amount_usdt); holdingCount += 1; }
     if (r.available_balance_usdt !== "" && r.available_balance_usdt !== undefined && r.available_balance_usdt !== null) { totalBalance += num(r.available_balance_usdt); balanceCount += 1; }
     if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet += num(r.net_asset_usdt); netCount += 1; }
@@ -289,6 +311,8 @@ export function updateStats() {
   $("statVolume").textContent = formatMoney(totalVolume);
   $("statShares").textContent = sharesCount ? formatMoney(totalShares) : "—";
   $("statCost").textContent = trimNumber(totalCost, 6) + " U";
+  const statAllCostEl = $("statAllCost");
+  if (statAllCostEl) statAllCostEl.textContent = (allFeeCount ? trimNumber(totalAllFee, 6) : "0") + " U";
   $("statTrades").textContent = String(Math.round(totalTrades));
   $("statPoints").textContent = formatTwoDecimal(totalPoints);
   $("statTotalPoints").textContent = totalPointsCount ? formatTwoDecimal(totalTotalPoints) : "0";
@@ -334,6 +358,11 @@ export function updateStats() {
   const retryFailed = $("retryFailedLink");
   if (viewFailed) viewFailed.style.display = state.failedWallets > 0 ? "" : "none";
   if (retryFailed) retryFailed.style.display = state.failedWallets > 0 && !state.running ? "" : "none";
+  const retryFailedBtn = $("retryFailedBtn");
+  if (retryFailedBtn) {
+    retryFailedBtn.style.display = state.failedWallets > 0 && !state.running ? "" : "none";
+    retryFailedBtn.textContent = `重试失败 (${state.failedWallets})`;
+  }
 }
 
 // ---------- 筛选 chips ----------
@@ -350,6 +379,8 @@ export function updateFilterHint() {
   if (state.maxNetAsset > 0) items.push({ label: `净资产 ≤ ${state.maxNetAsset}`, key: "maxNetAsset" });
   if (state.maxReferralPoints > 0) items.push({ label: `推荐积分 ≤ ${state.maxReferralPoints}`, key: "maxReferralPoints" });
   if (state.maxCpp > 0) items.push({ label: `积分成本 ≤ ${state.maxCpp}`, key: "maxCpp" });
+  if (state.maxCost > 0) items.push({ label: `选中周手续费 ≤ ${state.maxCost}`, key: "maxCost" });
+  if (state.maxAllFee > 0) items.push({ label: `全部手续费 ≤ ${state.maxAllFee}`, key: "maxAllFee" });
   if (state.onlyCalculated) items.push({ label: "已结算", key: "onlyCalculated" });
   if (state.onlyFailed) items.push({ label: "只看失败", key: "onlyFailed" });
   chips.innerHTML = "";
