@@ -35,7 +35,7 @@ export const numericKeys = new Set([
   "total_points", "allocation_round_points",
   "week", "trade_count",
   "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt",
-  "paid_fee_usdt", "cost_usdt", "points", "referral_points",
+  "paid_fee_usdt", "cost_usdt", "all_fee_usdt", "points", "referral_points",
   "cost_per_point", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt", "pnl",
   "total_volume_shares", "shares_per_point",
   "total_volume_per_point", "paid_volume_per_point", "free_volume_per_point",
@@ -46,7 +46,7 @@ export const CPP_KEYS = new Set(["cost_per_point"]);
 export const VPP_KEYS = new Set(["total_volume_per_point", "paid_volume_per_point", "free_volume_per_point", "shares_per_point"]);
 export const MONEY_KEYS = new Set([
   "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt", "total_volume_shares",
-  "cost_usdt", "paid_fee_usdt", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt"
+  "cost_usdt", "paid_fee_usdt", "all_fee_usdt", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt"
 ]);
 export const PNL_KEYS = new Set(["pnl"]);
 export const TWO_DECIMAL_KEYS = new Set(["points", "total_points"]);
@@ -72,6 +72,7 @@ export const detailColumns = [
   ["total_volume_per_point", "总量/分"],
   ["shares_per_point", "份额/分"],
   ["total_points", "钱包总积分"],
+  ["all_fee_usdt", "全部手续费"],
   ["allocation_round_points", "本轮积分"],
   ["week_start_ts", "开始时间戳"],
   ["week_end_ts", "结束时间戳"],
@@ -87,6 +88,7 @@ export const summaryColumns = [
   ["status", "状态"],
   ["points", "选中周积分"],
   ["cost_usdt", "选中周手续费"],
+  ["all_fee_usdt", "全部手续费"],
   ["cost_per_point", "积分成本 $/积分"],
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],

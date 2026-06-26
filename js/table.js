@@ -277,9 +277,11 @@ export function updateStats() {
   }
   let totalHolding = 0, holdingCount = 0, totalBalance = 0, balanceCount = 0, totalNet = 0, netCount = 0;
   let totalTotalPoints = 0, totalPointsCount = 0, totalPnl = 0, pnlCount = 0, okCount = 0;
+  let totalAllFee = 0, allFeeCount = 0;
   for (const r of state.summaryRows) {
     if (r.status !== "ok") continue;
     okCount += 1;
+    if (r.all_fee_usdt !== "" && r.all_fee_usdt !== undefined && r.all_fee_usdt !== null) { totalAllFee += num(r.all_fee_usdt); allFeeCount += 1; }
     if (r.holding_amount_usdt !== "" && r.holding_amount_usdt !== undefined && r.holding_amount_usdt !== null) { totalHolding += num(r.holding_amount_usdt); holdingCount += 1; }
     if (r.available_balance_usdt !== "" && r.available_balance_usdt !== undefined && r.available_balance_usdt !== null) { totalBalance += num(r.available_balance_usdt); balanceCount += 1; }
     if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet += num(r.net_asset_usdt); netCount += 1; }
@@ -289,6 +291,8 @@ export function updateStats() {
   $("statVolume").textContent = formatMoney(totalVolume);
   $("statShares").textContent = sharesCount ? formatMoney(totalShares) : "—";
   $("statCost").textContent = trimNumber(totalCost, 6) + " U";
+  const statAllCostEl = $("statAllCost");
+  if (statAllCostEl) statAllCostEl.textContent = (allFeeCount ? trimNumber(totalAllFee, 6) : "0") + " U";
   $("statTrades").textContent = String(Math.round(totalTrades));
   $("statPoints").textContent = formatTwoDecimal(totalPoints);
   $("statTotalPoints").textContent = totalPointsCount ? formatTwoDecimal(totalTotalPoints) : "0";

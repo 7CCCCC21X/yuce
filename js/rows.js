@@ -44,6 +44,11 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
       }
     }
   } catch {}
+  // 全部手续费：对该钱包接口返回的「所有周」求和（与选中周无关），口径同选中周手续费——
+  // 逐周乘以手续费折扣后相加，保证「全部周」选中时与「选中周手续费」完全相等。
+  let allFee = "0";
+  for (const w of weekMap.values()) allFee = decimalAdd(allFee, decimalMul(normalizeDecimal(w.paid_fee_usdt ?? "0"), feeMul));
+
   const targetWeeks = selectedWeeks === null ? [...weekMap.keys()].sort((a, b) => a - b) : selectedWeeks;
 
   const entries = targetWeeks.map(weekNo => ({ weekNo, item: weekMap.get(Number(weekNo)) || null }));
@@ -60,7 +65,7 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
         allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
         week: weekNo, calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
         trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
-        paid_fee_usdt: "0", cost_usdt: "0", points: "0", cost_per_point: "",
+        paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: allFee, points: "0", cost_per_point: "",
         total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "",
         referral_points: "0", ...assets, error: joinErrors("接口没有返回这一周", assetError)
       };
@@ -88,7 +93,7 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
       trade_count: String(item.trade_count ?? 0),
       paid_volume_usdt: paidVolume, free_volume_usdt: freeVolume, total_volume_usdt: totalVolume,
       total_volume_shares: totalShares,
-      paid_fee_usdt: paidFee, cost_usdt: paidFee, points,
+      paid_fee_usdt: paidFee, cost_usdt: paidFee, all_fee_usdt: allFee, points,
       cost_per_point: computeCostPerPoint(points, paidFee),
       total_volume_per_point: computeVolumePerPoint(points, totalVolume),
       paid_volume_per_point: computeVolumePerPoint(points, paidVolume),
@@ -107,7 +112,7 @@ export function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceRe
     wallet, status: "error",
     total_points: "0", allocation_round_points: "0", week: "", calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
     trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
-    paid_fee_usdt: "0", cost_usdt: "0", points: "0", cost_per_point: "",
+    paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", cost_per_point: "",
     total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "", referral_points: "0",
     ...assets,
     error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error)
@@ -122,12 +127,14 @@ export function buildSummaryRows(detailRows) {
       map.set(wallet, {
         wallet, name: "", status: row.status === "error" ? "error" : "ok", total_points: row.total_points || "0", selected_weeks: [], calculated_all: "true",
         trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
-        paid_fee_usdt: "0", cost_usdt: "0", points: "0", referral_points: "0",
+        paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", referral_points: "0",
         holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", pnl: "", error: ""
       });
     }
     const s = map.get(wallet);
     if (row.name) s.name = String(row.name);
+    // 全部手续费是钱包级（全期）数值，每行相同，按 total_points 的方式直接沿用而非累加。
+    if (row.all_fee_usdt !== "" && row.all_fee_usdt !== undefined && row.all_fee_usdt !== null) s.all_fee_usdt = normalizeDecimal(row.all_fee_usdt);
     if (row.holding_amount_usdt !== "" && row.holding_amount_usdt !== undefined && row.holding_amount_usdt !== null) s.holding_amount_usdt = normalizeDecimal(row.holding_amount_usdt);
     if (row.available_balance_usdt !== "" && row.available_balance_usdt !== undefined && row.available_balance_usdt !== null) s.available_balance_usdt = normalizeDecimal(row.available_balance_usdt);
     if (row.pnl !== "" && row.pnl !== undefined && row.pnl !== null) s.pnl = normalizeDecimal(row.pnl);
