@@ -3,7 +3,7 @@
 import { $, debounce, copyText } from "./dom.js";
 import { toast } from "./toast.js";
 import { log, setLog } from "./log.js";
-import { state, summaryColumns, detailColumns } from "./state.js";
+import { state, summaryColumns, detailColumns, summaryExportColumns, detailExportColumns } from "./state.js";
 import { csvEscape } from "./format.js";
 import { extractWallets, parseWeeks } from "./parse.js";
 import { rateLimiter, fetchWallet, fetchPositionValue, fetchUsdtBalance, fetchOfficialPortfolioPnl, shouldQueryPnl, shouldQueryShares, shouldQueryHoldings, shouldQueryBalance } from "./api.js";
@@ -162,8 +162,8 @@ function downloadCsv(filename, rows, columns) {
 
 async function copySummary() {
   if (!state.summaryRows.length) return;
-  const header = summaryColumns.map(([, label]) => label).join("\t");
-  const lines = state.summaryRows.map(row => summaryColumns.map(([key]) => row[key] ?? "").join("\t"));
+  const header = summaryExportColumns.map(([, label]) => label).join("\t");
+  const lines = state.summaryRows.map(row => summaryExportColumns.map(([key]) => row[key] ?? "").join("\t"));
   if (await copyText([header, ...lines].join("\n"))) log("已复制汇总表。");
   else toast("复制失败，浏览器可能不允许剪贴板权限。可以改用导出 CSV。", "error");
 }
@@ -203,12 +203,12 @@ function setupListeners() {
 
   $("filterInput").addEventListener("input", e => { state.filterText = e.target.value || ""; debouncedRender(); });
   $("onlyCalculated").addEventListener("change", e => { state.onlyCalculated = e.target.checked; renderAll(); });
-  for (const id of ["minPoints", "minBalance", "minHolding", "maxHolding", "minNetAsset", "maxNetAsset", "maxReferralPoints", "maxCpp"]) {
+  for (const id of ["minPoints", "minBalance", "minHolding", "maxHolding", "minNetAsset", "maxNetAsset", "maxReferralPoints", "maxCpp", "maxCost", "maxAllFee"]) {
     $(id).addEventListener("input", e => { state[id] = readMinInput(e.target); debouncedRender(); });
   }
   $("sortPresetSelect").addEventListener("change", e => { const [key, dir] = String(e.target.value || "cost_per_point:asc").split(":"); state.sort.summary = { key, dir: dir === "asc" ? "asc" : "desc" }; renderAll(); });
   $("quickBestBtn").addEventListener("click", () => { state.minPoints = 10000; state.maxCpp = 0.00005; state.onlyCalculated = true; $("minPoints").value = "10000"; $("maxCpp").value = "0.00005"; $("onlyCalculated").checked = true; state.sort.summary = { key: "cost_per_point", dir: "asc" }; renderAll(); });
-  $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.maxHolding = state.minNetAsset = state.maxNetAsset = state.maxReferralPoints = state.maxCpp = 0; state.onlyCalculated = false; state.onlyFailed = false; ["minPoints","minBalance","minHolding","maxHolding","minNetAsset","maxNetAsset","maxReferralPoints","maxCpp"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
+  $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.maxHolding = state.minNetAsset = state.maxNetAsset = state.maxReferralPoints = state.maxCpp = state.maxCost = state.maxAllFee = 0; state.onlyCalculated = false; state.onlyFailed = false; ["minPoints","minBalance","minHolding","maxHolding","minNetAsset","maxNetAsset","maxReferralPoints","maxCpp","maxCost","maxAllFee"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
 
   document.querySelectorAll(".tab").forEach(tab => {
     tab.addEventListener("click", () => {
@@ -246,6 +246,7 @@ function setupListeners() {
   });
 
   $("retryFailedLink")?.addEventListener("click", (e) => { e.preventDefault(); retryFailed(); });
+  $("retryFailedBtn")?.addEventListener("click", () => retryFailed());
 
   $("bestCopyBtn").addEventListener("click", async () => {
     const addr = $("bestAddr").dataset.wallet || ""; if (!addr) return;
@@ -256,8 +257,8 @@ function setupListeners() {
   $("stopBtn").addEventListener("click", stopQuery);
   $("clearBtn").addEventListener("click", clearResults);
   $("sampleBtn").addEventListener("click", fillSample);
-  $("exportSummaryBtn").addEventListener("click", () => downloadCsv("opinx_summary_with_assets.csv", state.summaryRows, summaryColumns));
-  $("exportDetailBtn").addEventListener("click", () => downloadCsv("opinx_detail_with_assets.csv", state.detailRows, detailColumns));
+  $("exportSummaryBtn").addEventListener("click", () => downloadCsv("opinx_summary_with_assets.csv", state.summaryRows, summaryExportColumns));
+  $("exportDetailBtn").addEventListener("click", () => downloadCsv("opinx_detail_with_assets.csv", state.detailRows, detailExportColumns));
   $("copySummaryBtn").addEventListener("click", copySummary);
   $("copyFilteredWalletsBtn").addEventListener("click", copyFilteredWallets);
 

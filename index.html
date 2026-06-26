@@ -241,13 +241,16 @@ https://bsc.drpc.org</textarea>
         <div class="control-group"><label for="maxNetAsset">净资产</label><input id="maxNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
         <div class="control-group"><label for="maxReferralPoints">推荐积分</label><input id="maxReferralPoints" type="number" min="0" step="any" placeholder="0" /></div>
         <div class="control-group"><label for="maxCpp">积分成本</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
+        <div class="control-group"><label for="maxCost">选中周手续费</label><input id="maxCost" type="number" min="0" step="any" placeholder="0" /></div>
+        <div class="control-group"><label for="maxAllFee">全部手续费</label><input id="maxAllFee" type="number" min="0" step="any" placeholder="0" /></div>
         <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
         <button id="resetFiltersBtn" class="secondary" type="button">重置筛选</button>
       </div>
 
       <div class="tableBar">
-        <input id="filterInput" type="search" placeholder="按钱包、状态、错误信息、周数过滤..." />
+        <input id="filterInput" type="search" placeholder="按用户名、钱包、状态、错误信息、周数过滤..." />
         <div class="rowCount" id="rowCount">0 行</div>
+        <button id="retryFailedBtn" class="bad" type="button" style="display:none">重试失败</button>
         <select id="sortPresetSelect" title="推荐排序">
           <option value="cost_per_point:asc">积分成本最低</option>
           <option value="points:desc">积分最多</option>

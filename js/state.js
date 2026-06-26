@@ -23,6 +23,8 @@ export const state = {
   maxNetAsset: 0,
   maxReferralPoints: 0,
   maxCpp: 0,
+  maxCost: 0,
+  maxAllFee: 0,
   onlyFailed: false,
   sort: {
     summary: { key: "cost_per_point", dir: "asc" },
@@ -52,7 +54,6 @@ export const PNL_KEYS = new Set(["pnl"]);
 export const TWO_DECIMAL_KEYS = new Set(["points", "total_points"]);
 
 export const detailColumns = [
-  ["wallet", "钱包"],
   ["name", "用户名"],
   ["status", "状态"],
   ["week", "周"],
@@ -83,7 +84,6 @@ export const detailColumns = [
 ];
 
 export const summaryColumns = [
-  ["wallet", "钱包"],
   ["name", "用户名"],
   ["status", "状态"],
   ["points", "选中周积分"],
@@ -107,6 +107,11 @@ export const summaryColumns = [
   ["referral_points", "推荐积分"],
   ["error", "错误"]
 ];
+
+// 表格里不再单列地址（用「用户名」列承载身份，点用户名跳转钱包），
+// 但导出 / 复制仍需要原始地址，这里给 CSV 用的列在最前面补回钱包地址列。
+export const summaryExportColumns = [["wallet", "钱包地址"], ...summaryColumns];
+export const detailExportColumns = [["wallet", "钱包地址"], ...detailColumns];
 
 export const MAX_RENDER_ROWS = { summary: 1000, detail: 500 };
 export const RENDER_INTERVAL_MS = 600;
