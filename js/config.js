@@ -6,6 +6,24 @@ import { setWeekSelection, isAllWeeksSelected } from "./week.js";
 
 const STORAGE_KEY = "yuce.config.v1";
 
+// 接口迁移：积分/份额接口域名从 tool.opinx.app 迁到 indexer.predalpha.xyz。
+// 老用户的旧域名已存进 localStorage，加载时就地改写，使其自动切到新接口。
+const LEGACY_API_HOST = "tool.opinx.app";
+const NEW_API_HOST = "indexer.predalpha.xyz";
+
+function migrateApiHost(cfg) {
+  if (!cfg || !cfg.values) return false;
+  let changed = false;
+  for (const id of ["apiTemplate", "tradesApiTemplate"]) {
+    const v = cfg.values[id];
+    if (typeof v === "string" && v.includes(LEGACY_API_HOST)) {
+      cfg.values[id] = v.replaceAll(LEGACY_API_HOST, NEW_API_HOST);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 // 钱包列表是一次性输入，而不是长期配置。地址非常多时（比如几万个），把整段
 // 文本反复写进 localStorage 会让每次打开页面都要解析、回填、重扫上 MB 的文本，
 // 每次输入又要同步重写整块数据，从而明显卡顿。超过此阈值就不再持久化钱包列表
@@ -68,10 +86,14 @@ export function loadConfig() {
     if (!raw) return false;
     const cfg = JSON.parse(raw);
     // 兼容旧版本：清理早先存进来的超大钱包列表，否则它会被反复回填导致卡顿。
+    let needsRewrite = false;
     if (cfg && cfg.values && walletsTooLargeToPersist(cfg.values.wallets)) {
       delete cfg.values.wallets;
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {}
+      needsRewrite = true;
     }
+    // 旧域名接口就地迁移到新域名。
+    if (migrateApiHost(cfg)) needsRewrite = true;
+    if (needsRewrite) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {} }
     applyConfig(cfg);
     return true;
   } catch { return false; }
@@ -96,7 +118,9 @@ export function exportConfig() {
 export async function importConfigFile(file) {
   try {
     const text = await file.text();
-    applyConfig(JSON.parse(text));
+    const cfg = JSON.parse(text);
+    migrateApiHost(cfg);
+    applyConfig(cfg);
     saveConfig();
     toast("配置已导入并保存。", "success");
     return true;
