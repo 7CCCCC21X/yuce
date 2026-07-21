@@ -3,8 +3,14 @@
 // pnlTimeseries point as { pnlUsd, timestamp, cursor, source }.
 // Official Portfolio PNL = latest edges[].node.y. Not positions.pnlUsd, not trade replay.
 //
+// interval 支持官网所有档位：
+//   _1H / _1D / _1W / _1M ... 这类窗口值，以及 ALL（全部/累计盈亏，默认值）。
+//   也接受不带下划线（1D）和小写（all、1d）的写法。
+// 上游 ALL 档的枚举名未在文档公开，这里按候选名逐个尝试并缓存命中的那个。
+//
 // Response envelope: { success, address, interval, ...fields, error?, source }.
 // `raw` (upstream timeseries) is only included when called with ?debug=1.
+// ?full=1 时额外返回完整时序 points: [{ x, y }]。
 //
 // Optional env vars: PREDICT_GRAPHQL_URL, PREDICT_GRAPHQL_AUTH, PREDICT_GRAPHQL_COOKIE
 
@@ -29,24 +35,54 @@ const QUERY = `query GetAccountPnlTimeseries($address: Address!, $filter: Timese
   }
 }`;
 
+// 上游 TimeseriesInterval 里“全部”档的枚举名没有公开文档，按这些候选逐个试。
+const ALL_INTERVAL_CANDIDATES = ['ALL', '_ALL', 'MAX', '_MAX', 'ALL_TIME'];
+
+// 命中过的“全部”枚举名缓存在模块级，同一实例后续请求不再重试。
+let resolvedAllInterval = null;
+
+// 分页保护上限：足够覆盖很长的时序，同时防止上游异常时无限翻页。
+const MAX_PAGES = 25;
+
 function normalizeInterval(value) {
-  const interval = String(value || '_1D').trim();
+  const interval = String(value == null ? '' : value).trim().toUpperCase();
 
-  // 目前按你抓到的官网请求默认用 _1D。
-  // 这里允许 _1H / _1D / _1W 这种格式，避免乱传。
+  // 默认查“全部”（官网 ALL 档，累计盈亏）。
+  if (!interval) return 'ALL';
+
+  // _1H / _1D / _1W / _1M 这类窗口值；也接受不带下划线的 1D 写法。
   if (/^_\d+[A-Z]$/.test(interval)) return interval;
+  if (/^\d+[A-Z]$/.test(interval)) return `_${interval}`;
 
-  return '_1D';
+  // ALL / MAX 这类词形枚举。
+  if (/^_?[A-Z][A-Z_]*$/.test(interval)) return interval;
+
+  return 'ALL';
 }
 
-function latestPnlPointFromPayload(payload) {
-  const edges = payload?.data?.account?.pnlTimeseries?.edges;
+function isAllInterval(interval) {
+  return ALL_INTERVAL_CANDIDATES.includes(interval);
+}
 
-  if (!Array.isArray(edges) || edges.length === 0) {
-    return null;
+// GraphQL 枚举校验错误（interval 值不被上游认识）的粗略判定，
+// 用于区分“换个枚举名再试”和“真正的请求失败”。
+function isIntervalEnumError(err) {
+  const messages = [err?.message];
+  const rawErrors = err?.raw?.errors;
+  if (Array.isArray(rawErrors)) {
+    for (const e of rawErrors) messages.push(e?.message);
   }
+  return messages.some(m =>
+    typeof m === 'string' &&
+    /interval|TimeseriesInterval|enum/i.test(m) &&
+    /invalid|does not exist|cannot represent|expected/i.test(m)
+  );
+}
 
-  const points = edges
+function pointsFromEdges(edges) {
+  if (!Array.isArray(edges)) return [];
+
+  return edges
     .map(edge => {
       const x = Number(edge?.node?.x ?? edge?.cursor);
       const y = Number(edge?.node?.y);
@@ -58,12 +94,69 @@ function latestPnlPointFromPayload(payload) {
       };
     })
     .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+}
 
-  if (!points.length) return null;
+// 跟随 hasNextPage 翻页取完整时序，保证“最新一个点”不会因为分页被截断。
+async function fetchPnlTimeseries(address, interval) {
+  const points = [];
+  let after = null;
+  let pages = 0;
+  let lastPayload = null;
+  let truncated = false;
 
-  points.sort((a, b) => b.x - a.x);
+  while (pages < MAX_PAGES) {
+    const json = await predictGraphql({
+      query: QUERY,
+      variables: {
+        address,
+        filter: { interval },
+        ...(after ? { pagination: { after } } : {}),
+      },
+      operationName: 'GetAccountPnlTimeseries',
+    });
 
-  return points[0];
+    lastPayload = json;
+    pages += 1;
+
+    const ts = json?.data?.account?.pnlTimeseries;
+    points.push(...pointsFromEdges(ts?.edges));
+
+    const pageInfo = ts?.pageInfo;
+    if (!pageInfo?.hasNextPage || !pageInfo?.endCursor) break;
+    after = pageInfo.endCursor;
+
+    if (pages >= MAX_PAGES) truncated = true;
+  }
+
+  points.sort((a, b) => a.x - b.x);
+
+  return { points, lastPayload, pages, truncated };
+}
+
+// interval=ALL 时上游枚举名不确定，按候选逐个试；命中后缓存。
+async function fetchWithAllFallback(address, interval) {
+  if (!isAllInterval(interval)) {
+    const result = await fetchPnlTimeseries(address, interval);
+    return { ...result, interval };
+  }
+
+  const candidates = resolvedAllInterval
+    ? [resolvedAllInterval]
+    : [interval, ...ALL_INTERVAL_CANDIDATES.filter(c => c !== interval)];
+
+  let lastErr = null;
+  for (const candidate of candidates) {
+    try {
+      const result = await fetchPnlTimeseries(address, candidate);
+      resolvedAllInterval = candidate;
+      return { ...result, interval: candidate };
+    } catch (err) {
+      lastErr = err;
+      if (!isIntervalEnumError(err)) throw err;
+    }
+  }
+
+  throw lastErr;
 }
 
 module.exports = async function handler(req, res) {
@@ -79,8 +172,9 @@ module.exports = async function handler(req, res) {
   }
 
   const rawAddress = String(req.query.address || '').trim();
-  const interval = normalizeInterval(req.query.interval);
+  const requestedInterval = normalizeInterval(req.query.interval);
   const debug = String(req.query.debug || '') === '1';
+  const full = String(req.query.full || '') === '1';
 
   if (!ETH_RE.test(rawAddress)) {
     return send(res, 400, {
@@ -93,19 +187,10 @@ module.exports = async function handler(req, res) {
   const address = toChecksumAddress(rawAddress);
 
   try {
-    const json = await predictGraphql({
-      query: QUERY,
-      variables: {
-        address,
-        filter: { interval },
-      },
-      operationName: 'GetAccountPnlTimeseries',
-    });
+    const { points, lastPayload, truncated, interval } = await fetchWithAllFallback(address, requestedInterval);
 
-    const latest = latestPnlPointFromPayload(json);
-
-    if (!latest) {
-      const ts = json?.data?.account?.pnlTimeseries;
+    if (!points.length) {
+      const ts = lastPayload?.data?.account?.pnlTimeseries;
       return send(res, 200, {
         success: false,
         address,
@@ -113,14 +198,16 @@ module.exports = async function handler(req, res) {
         error: 'No PNL timeseries point found',
         source: 'predict_graphql_GetAccountPnlTimeseries',
         diag: {
-          hasData: !!json?.data,
-          accountPresent: json?.data ? json.data.account !== null && json.data.account !== undefined : false,
+          hasData: !!lastPayload?.data,
+          accountPresent: lastPayload?.data ? lastPayload.data.account !== null && lastPayload.data.account !== undefined : false,
           pnlTimeseriesPresent: !!ts,
           edgeCount: Array.isArray(ts?.edges) ? ts.edges.length : null,
         },
-        ...(debug ? { raw: json ?? null } : {}),
+        ...(debug ? { raw: lastPayload ?? null } : {}),
       });
     }
+
+    const latest = points[points.length - 1];
 
     return send(res, 200, {
       success: true,
@@ -133,20 +220,23 @@ module.exports = async function handler(req, res) {
 
       timestamp: latest.x,
       cursor: latest.cursor,
+      pointCount: points.length,
+      ...(truncated ? { truncated: true } : {}),
+      ...(full ? { points: points.map(({ x, y }) => ({ x, y })) } : {}),
       source: 'predict_graphql_GetAccountPnlTimeseries',
-      ...(debug ? { raw: json?.data?.account?.pnlTimeseries || null } : {}),
+      ...(debug ? { raw: lastPayload?.data?.account?.pnlTimeseries || null } : {}),
     });
   } catch (err) {
     logError('portfolio-pnl', {
       address,
-      interval,
+      interval: requestedInterval,
       status: err?.status || 500,
       message: err?.message || 'Portfolio PNL proxy failed',
     });
     return send(res, err?.status || 500, {
       success: false,
       address,
-      interval,
+      interval: requestedInterval,
       error: err?.message || 'Portfolio PNL proxy failed',
       source: 'predict_graphql_GetAccountPnlTimeseries',
       ...(debug ? { raw: err?.raw || null } : {}),
