@@ -187,8 +187,8 @@
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="pnlApiTemplate">官网 PNL API 模板</label>
-          <input id="pnlApiTemplate" type="text" value="/api/portfolio-pnl?address={wallet}&amp;interval=_1D" />
-          <div class="help">默认走同域代理 /api/portfolio-pnl；服务端转发到 Predict.fun GraphQL GetAccountPnlTimeseries，返回 pnlUsd。</div>
+          <input id="pnlApiTemplate" type="text" value="/api/portfolio-pnl?address={wallet}&amp;interval=ALL" />
+          <div class="help">默认走同域代理 /api/portfolio-pnl；服务端转发到 Predict.fun GraphQL GetAccountPnlTimeseries，返回 pnlUsd。interval 支持 ALL（全部，默认）/ _1D / _1W / _1M 等档位。</div>
         </div>
 
         <div>
