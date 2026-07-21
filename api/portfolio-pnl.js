@@ -35,11 +35,12 @@ const QUERY = `query GetAccountPnlTimeseries($address: Address!, $filter: Timese
   }
 }`;
 
-// 上游 TimeseriesInterval 里“全部”档的枚举名没有公开文档，按这些候选逐个试。
-const ALL_INTERVAL_CANDIDATES = ['ALL', '_ALL', 'MAX', '_MAX', 'ALL_TIME'];
+// 官网“全部（ALL）”档实际发送的枚举名是 MAX（已从真实请求荷载确认）。
+// 保留候选回退链，以防上游将来改枚举名。
+const ALL_INTERVAL_CANDIDATES = ['MAX', 'ALL', '_ALL', '_MAX', 'ALL_TIME'];
 
 // 命中过的“全部”枚举名缓存在模块级，同一实例后续请求不再重试。
-let resolvedAllInterval = null;
+let resolvedAllInterval = 'MAX';
 
 // 分页保护上限：足够覆盖很长的时序，同时防止上游异常时无限翻页。
 const MAX_PAGES = 25;
@@ -140,9 +141,8 @@ async function fetchWithAllFallback(address, interval) {
     return { ...result, interval };
   }
 
-  const candidates = resolvedAllInterval
-    ? [resolvedAllInterval]
-    : [interval, ...ALL_INTERVAL_CANDIDATES.filter(c => c !== interval)];
+  // 已命中的枚举名放最前，其余候选保留兜底（上游改枚举名时自动重新探测）。
+  const candidates = [...new Set([resolvedAllInterval, interval, ...ALL_INTERVAL_CANDIDATES].filter(Boolean))];
 
   let lastErr = null;
   for (const candidate of candidates) {
