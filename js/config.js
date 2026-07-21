@@ -24,6 +24,17 @@ function migrateApiHost(cfg) {
   return changed;
 }
 
+// PNL 口径迁移：默认从 1 天（interval=_1D）改为全部（interval=ALL）。
+// 旧版本只支持 _1D，老用户的模板已存进 localStorage，加载时就地改写。
+function migratePnlInterval(cfg) {
+  const v = cfg?.values?.pnlApiTemplate;
+  if (typeof v === "string" && v.includes("interval=_1D")) {
+    cfg.values.pnlApiTemplate = v.replaceAll("interval=_1D", "interval=ALL");
+    return true;
+  }
+  return false;
+}
+
 // 钱包列表是一次性输入，而不是长期配置。地址非常多时（比如几万个），把整段
 // 文本反复写进 localStorage 会让每次打开页面都要解析、回填、重扫上 MB 的文本，
 // 每次输入又要同步重写整块数据，从而明显卡顿。超过此阈值就不再持久化钱包列表
@@ -93,6 +104,8 @@ export function loadConfig() {
     }
     // 旧域名接口就地迁移到新域名。
     if (migrateApiHost(cfg)) needsRewrite = true;
+    // PNL 默认口径迁移：_1D → ALL（全部）。
+    if (migratePnlInterval(cfg)) needsRewrite = true;
     if (needsRewrite) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {} }
     applyConfig(cfg);
     return true;
@@ -120,6 +133,7 @@ export async function importConfigFile(file) {
     const text = await file.text();
     const cfg = JSON.parse(text);
     migrateApiHost(cfg);
+    migratePnlInterval(cfg);
     applyConfig(cfg);
     saveConfig();
     toast("配置已导入并保存。", "success");
