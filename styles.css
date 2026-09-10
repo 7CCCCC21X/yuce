@@ -309,6 +309,8 @@ td.cpp .cppVal { min-width: 76px; text-align: right; font-weight: 600; font-fami
 td.cpp .cppBar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; max-width: 80px; }
 td.cpp .cppFill { height: 100%; background: linear-gradient(90deg, #4ca96b, #147a3d); border-radius: 3px; transition: width .25s ease; }
 td.cpp.free .cppVal { color: #1d63ed; }
+td.cpp.profit .cppVal { color: var(--ok); }
+td.cpp.profit .cppFill { background: linear-gradient(90deg, #5aa9ff, #1d63ed); }
 td.cpp.inf .cppVal { color: var(--bad); font-weight: 700; }
 td.cpp.none .cppVal { color: var(--muted); font-weight: 500; }
 .filter-bar { margin: 10px 0 8px; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; gap: 14px; }

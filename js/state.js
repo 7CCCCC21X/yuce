@@ -23,6 +23,8 @@ export const state = {
   maxNetAsset: 0,
   maxReferralPoints: 0,
   maxCpp: 0,
+  maxPnlCpp: 0,
+  maxWeekPnlCpp: 0,
   maxCost: 0,
   maxAllFee: 0,
   onlyFailed: false,
@@ -38,19 +40,21 @@ export const numericKeys = new Set([
   "week", "trade_count",
   "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt",
   "paid_fee_usdt", "cost_usdt", "all_fee_usdt", "points", "referral_points",
-  "cost_per_point", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt", "pnl",
+  "cost_per_point", "pnl_cost_per_point", "week_pnl", "week_pnl_cost_per_point", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt", "pnl",
   "total_volume_shares", "shares_per_point",
   "total_volume_per_point", "paid_volume_per_point", "free_volume_per_point",
   "week_start_ts", "week_end_ts"
 ]);
 
 export const CPP_KEYS = new Set(["cost_per_point"]);
+// 盈亏积分成本：-官网PNL / 钱包总积分；周盈亏积分成本：-周PNL / 周积分。均允许负值（盈利）。
+export const PNL_CPP_KEYS = new Set(["pnl_cost_per_point", "week_pnl_cost_per_point"]);
 export const VPP_KEYS = new Set(["total_volume_per_point", "paid_volume_per_point", "free_volume_per_point", "shares_per_point"]);
 export const MONEY_KEYS = new Set([
   "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt", "total_volume_shares",
   "cost_usdt", "paid_fee_usdt", "all_fee_usdt", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt"
 ]);
-export const PNL_KEYS = new Set(["pnl"]);
+export const PNL_KEYS = new Set(["pnl", "week_pnl"]);
 export const TWO_DECIMAL_KEYS = new Set(["points", "total_points"]);
 
 export const detailColumns = [
@@ -61,10 +65,13 @@ export const detailColumns = [
   ["points", "本周积分"],
   ["cost_usdt", "手续费"],
   ["cost_per_point", "积分成本 $/积分"],
+  ["pnl_cost_per_point", "盈亏积分成本 $/总积分"],
+  ["week_pnl_cost_per_point", "周盈亏积分成本 $/积分"],
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],
   ["net_asset_usdt", "净资产"],
   ["pnl", "官网PNL"],
+  ["week_pnl", "本周PNL"],
   ["trade_count", "交易次数"],
   ["paid_volume_usdt", "付费交易量"],
   ["free_volume_usdt", "免费交易量"],
@@ -90,10 +97,13 @@ export const summaryColumns = [
   ["cost_usdt", "选中周手续费"],
   ["all_fee_usdt", "全部手续费"],
   ["cost_per_point", "积分成本 $/积分"],
+  ["pnl_cost_per_point", "盈亏积分成本 $/总积分"],
+  ["week_pnl_cost_per_point", "周盈亏积分成本 $/积分"],
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],
   ["net_asset_usdt", "净资产"],
   ["pnl", "官网PNL"],
+  ["week_pnl", "选中周PNL"],
   ["trade_count", "交易次数"],
   ["paid_volume_usdt", "付费交易量"],
   ["free_volume_usdt", "免费交易量"],

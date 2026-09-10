@@ -4,7 +4,7 @@ import { $ } from "./dom.js";
 import { normalizeDecimal, decimalAdd, decimalMul } from "./decimal.js";
 import {
   joinErrors, timestampToUTC8,
-  computeCostPerPoint, computeVolumePerPoint, computeOptionalVolumePerPoint,
+  computeCostPerPoint, computePnlCostPerPoint, computeVolumePerPoint, computeOptionalVolumePerPoint,
   isValidCpp, cppSortValue
 } from "./format.js";
 import { fetchTradeShares } from "./api.js";
@@ -65,7 +65,7 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
         allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
         week: weekNo, calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
         trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
-        paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: allFee, points: "0", cost_per_point: "",
+        paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: allFee, points: "0", cost_per_point: "", pnl_cost_per_point: "", week_pnl: "", week_pnl_cost_per_point: "",
         total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "",
         referral_points: "0", ...assets, error: joinErrors("接口没有返回这一周", assetError)
       };
@@ -95,6 +95,10 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
       total_volume_shares: totalShares,
       paid_fee_usdt: paidFee, cost_usdt: paidFee, all_fee_usdt: allFee, points,
       cost_per_point: computeCostPerPoint(points, paidFee),
+      // 官网 PNL 是钱包全期数值，分母同口径用钱包总积分（未结算周本周积分为 0，不能作分母）。
+      pnl_cost_per_point: computePnlCostPerPoint(normalizeDecimal(leaderboard.total_points ?? "0"), assets.pnl),
+      // 本周 PNL 由官网 PNL 时序按周切分后异步回填（见 main.js patchWalletPnl）。
+      week_pnl: "", week_pnl_cost_per_point: "",
       total_volume_per_point: computeVolumePerPoint(points, totalVolume),
       paid_volume_per_point: computeVolumePerPoint(points, paidVolume),
       free_volume_per_point: computeVolumePerPoint(points, freeVolume),
@@ -112,7 +116,7 @@ export function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceRe
     wallet, status: "error",
     total_points: "0", allocation_round_points: "0", week: "", calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
     trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
-    paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", cost_per_point: "",
+    paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", cost_per_point: "", pnl_cost_per_point: "", week_pnl: "", week_pnl_cost_per_point: "",
     total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "", referral_points: "0",
     ...assets,
     error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error)
@@ -128,7 +132,7 @@ export function buildSummaryRows(detailRows) {
         wallet, name: "", status: row.status === "error" ? "error" : "ok", total_points: row.total_points || "0", selected_weeks: [], calculated_all: "true",
         trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
         paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", referral_points: "0",
-        holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", pnl: "", error: ""
+        holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", pnl: "", week_pnl: "", error: ""
       });
     }
     const s = map.get(wallet);
@@ -156,6 +160,8 @@ export function buildSummaryRows(detailRows) {
     s.paid_fee_usdt = decimalAdd(s.paid_fee_usdt, row.paid_fee_usdt || "0");
     s.cost_usdt = decimalAdd(s.cost_usdt, row.cost_usdt || "0");
     s.points = decimalAdd(s.points, row.points || "0");
+    // 选中周 PNL：对已切出周 PNL 的周求和；一周都没有则保持 ""。
+    if (row.week_pnl !== "" && row.week_pnl !== undefined && row.week_pnl !== null) s.week_pnl = decimalAdd(s.week_pnl || "0", row.week_pnl);
     s.referral_points = decimalAdd(s.referral_points, row.referral_points || "0");
     if (row.error && !s.error) s.error = row.error;
   }
@@ -163,6 +169,9 @@ export function buildSummaryRows(detailRows) {
     ...row,
     selected_weeks: row.selected_weeks.join(","),
     cost_per_point: computeCostPerPoint(row.points, row.cost_usdt),
+    // 盈亏积分成本 = -官网PNL / 钱包总积分（PNL 与总积分均为钱包全期口径）。
+    pnl_cost_per_point: computePnlCostPerPoint(row.total_points, row.pnl),
+    week_pnl_cost_per_point: computePnlCostPerPoint(row.points, row.week_pnl),
     total_volume_per_point: computeVolumePerPoint(row.points, row.total_volume_usdt),
     paid_volume_per_point: computeVolumePerPoint(row.points, row.paid_volume_usdt),
     free_volume_per_point: computeVolumePerPoint(row.points, row.free_volume_usdt),
