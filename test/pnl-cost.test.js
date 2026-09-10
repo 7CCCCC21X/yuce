@@ -25,7 +25,7 @@ test('computePnlCostPerPoint / formatPnlCostPerPoint / pnlCppSortValue', async (
   assert.strictEqual(formatPnlCostPerPoint('0.01'), '$0.0100');
   assert.strictEqual(formatPnlCostPerPoint('-0.005'), '-$0.00500');
   assert.strictEqual(formatPnlCostPerPoint('1.5'), '$1.50');
-  assert.strictEqual(formatPnlCostPerPoint('0.00002'), '$0.00002');
+  assert.strictEqual(formatPnlCostPerPoint('0.00002'), '$2.00e-5');
 
   assert.strictEqual(isValidPnlCpp('-0.005'), true);
   assert.strictEqual(isValidPnlCpp('Infinity'), false);
