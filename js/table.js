@@ -45,6 +45,7 @@ export function filterRows(rows, tableKey) {
   if (state.maxReferralPoints > 0) result = result.filter(r => num(r.referral_points) <= state.maxReferralPoints);
   if (state.maxCpp > 0) result = result.filter(r => isValidCpp(r.cost_per_point) && Number(r.cost_per_point) <= state.maxCpp);
   if (state.maxPnlCpp > 0) result = result.filter(r => isValidPnlCpp(r.pnl_cost_per_point) && Number(r.pnl_cost_per_point) <= state.maxPnlCpp);
+  if (state.maxWeekPnlCpp > 0) result = result.filter(r => isValidPnlCpp(r.week_pnl_cost_per_point) && Number(r.week_pnl_cost_per_point) <= state.maxWeekPnlCpp);
   if (state.maxCost > 0) result = result.filter(r => num(r.cost_usdt) <= state.maxCost);
   if (state.maxAllFee > 0) result = result.filter(r => r.all_fee_usdt !== "" && r.all_fee_usdt !== undefined && r.all_fee_usdt !== null && num(r.all_fee_usdt) <= state.maxAllFee);
   const q = state.filterText.trim().toLowerCase();
@@ -325,7 +326,7 @@ export function updateStats() {
   }
   let totalHolding = 0, holdingCount = 0, totalBalance = 0, balanceCount = 0, totalNet = 0, netCount = 0;
   let totalTotalPoints = 0, totalPointsCount = 0, totalPnl = 0, pnlCount = 0, okCount = 0;
-  let totalAllFee = 0, allFeeCount = 0, pnlPoints = 0;
+  let totalAllFee = 0, allFeeCount = 0, pnlPoints = 0, totalWeekPnl = 0, weekPnlCount = 0, weekPnlPoints = 0;
   for (const r of state.summaryRows) {
     if (r.status !== "ok") continue;
     okCount += 1;
@@ -335,6 +336,7 @@ export function updateStats() {
     if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet += num(r.net_asset_usdt); netCount += 1; }
     if (r.total_points !== "" && r.total_points !== undefined && r.total_points !== null) { totalTotalPoints += num(r.total_points); totalPointsCount += 1; }
     if (r.pnl !== "" && r.pnl !== undefined && r.pnl !== null) { totalPnl += num(r.pnl); pnlCount += 1; pnlPoints += num(r.total_points); }
+    if (r.week_pnl !== "" && r.week_pnl !== undefined && r.week_pnl !== null) { totalWeekPnl += num(r.week_pnl); weekPnlCount += 1; weekPnlPoints += num(r.points); }
   }
   $("statVolume").textContent = formatMoney(totalVolume);
   $("statShares").textContent = sharesCount ? formatMoney(totalShares) : "—";
@@ -353,6 +355,20 @@ export function updateStats() {
     statOverallPnlCpp.textContent = formatPnlCostPerPoint(v);
     statOverallPnlCpp.classList.toggle("pnl-pos", isValidPnlCpp(v) && Number(v) < 0);
     statOverallPnlCpp.classList.toggle("pnl-neg", isValidPnlCpp(v) && Number(v) > 0);
+  }
+  // 选中周 PNL Σ 与选中周盈亏积分成本：只统计切出了周 PNL 的钱包，-Σ周PNL / Σ选中周积分。
+  const statWeekPnl = $("statWeekPnl");
+  if (statWeekPnl) {
+    statWeekPnl.textContent = weekPnlCount ? signedMoney(totalWeekPnl) : "—";
+    statWeekPnl.classList.toggle("pnl-pos", weekPnlCount > 0 && totalWeekPnl > 0);
+    statWeekPnl.classList.toggle("pnl-neg", weekPnlCount > 0 && totalWeekPnl < 0);
+  }
+  const statWeekPnlCpp = $("statWeekPnlCpp");
+  if (statWeekPnlCpp) {
+    const v = weekPnlCount ? computePnlCostPerPoint(String(weekPnlPoints), String(totalWeekPnl)) : "";
+    statWeekPnlCpp.textContent = formatPnlCostPerPoint(v);
+    statWeekPnlCpp.classList.toggle("pnl-pos", isValidPnlCpp(v) && Number(v) < 0);
+    statWeekPnlCpp.classList.toggle("pnl-neg", isValidPnlCpp(v) && Number(v) > 0);
   }
   $("statHolding").textContent = holdingCount ? formatMoney(totalHolding) + " U" : "—";
   $("statBalance").textContent = balanceCount ? formatMoney(totalBalance) + " U" : "—";
@@ -382,6 +398,8 @@ export function updateStats() {
     $("bestCpp").textContent = formatCostPerPoint(best.cost_per_point);
     const bestPnlCpp = $("bestPnlCpp");
     if (bestPnlCpp) bestPnlCpp.textContent = formatPnlCostPerPoint(best.pnl_cost_per_point);
+    const bestWeekPnlCpp = $("bestWeekPnlCpp");
+    if (bestWeekPnlCpp) bestWeekPnlCpp.textContent = formatPnlCostPerPoint(best.week_pnl_cost_per_point);
     $("bestHolding").textContent = best.holding_amount_usdt !== "" ? formatMoney(best.holding_amount_usdt) : "—";
     $("bestBalance").textContent = best.available_balance_usdt !== "" ? formatMoney(best.available_balance_usdt) : "—";
     $("bestNetAsset").textContent = best.net_asset_usdt !== "" ? formatMoney(best.net_asset_usdt) : "—";
@@ -421,6 +439,7 @@ export function updateFilterHint() {
   if (state.maxReferralPoints > 0) items.push({ label: `推荐积分 ≤ ${state.maxReferralPoints}`, key: "maxReferralPoints" });
   if (state.maxCpp > 0) items.push({ label: `积分成本 ≤ ${state.maxCpp}`, key: "maxCpp" });
   if (state.maxPnlCpp > 0) items.push({ label: `盈亏积分成本 ≤ ${state.maxPnlCpp}`, key: "maxPnlCpp" });
+  if (state.maxWeekPnlCpp > 0) items.push({ label: `周盈亏积分成本 ≤ ${state.maxWeekPnlCpp}`, key: "maxWeekPnlCpp" });
   if (state.maxCost > 0) items.push({ label: `选中周手续费 ≤ ${state.maxCost}`, key: "maxCost" });
   if (state.maxAllFee > 0) items.push({ label: `全部手续费 ≤ ${state.maxAllFee}`, key: "maxAllFee" });
   if (state.onlyCalculated) items.push({ label: "已结算", key: "onlyCalculated" });

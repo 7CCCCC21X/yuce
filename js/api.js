@@ -204,21 +204,27 @@ export async function fetchPositionValue(wallet) {
   }
 }
 
+// 官网 PNL：返回最新累计值 pnl，以及完整累计时序 points（用于按周切分周 PNL）。
+// 模板未带 full=1 时自动补上；上游不返回 points 时 points 为空数组（周 PNL 显示 —）。
 export async function fetchOfficialPortfolioPnl(wallet) {
-  if (!shouldQueryPnl()) return { pnl: "", error: "" };
+  if (!shouldQueryPnl()) return { pnl: "", points: [], error: "" };
   try {
-    const data = await fetchWithRetries(makePnlUrl(wallet));
+    let url = makePnlUrl(wallet);
+    if (!/[?&]full=/.test(url)) url += (url.includes("?") ? "&" : "?") + "full=1";
+    const data = await fetchWithRetries(url);
     const v = firstValueFromPaths(data, ["pnlUsd", "pnl", "data.pnlUsd", "data.pnl", "result.pnlUsd"]);
     if (v === undefined || v === null || v === "") {
-      return { pnl: "", error: data && data.error ? String(data.error) : "未取到官网PNL" };
+      return { pnl: "", points: [], error: data && data.error ? String(data.error) : "未取到官网PNL" };
     }
     const n = Number(v);
-    if (!Number.isFinite(n)) return { pnl: "", error: "官网PNL非数字" };
-    return { pnl: normalizeDecimal(v), error: "" };
+    if (!Number.isFinite(n)) return { pnl: "", points: [], error: "官网PNL非数字" };
+    const rawPoints = firstValueFromPaths(data, ["points", "data.points", "result.points"]);
+    const points = Array.isArray(rawPoints) ? rawPoints : [];
+    return { pnl: normalizeDecimal(v), points, error: "" };
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     if (state.abort || message === "已停止") throw err;
-    return { pnl: "", error: `官网PNL失败: ${message}` };
+    return { pnl: "", points: [], error: `官网PNL失败: ${message}` };
   }
 }
 

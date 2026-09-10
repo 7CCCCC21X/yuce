@@ -28,6 +28,29 @@ export function computePnlCostPerPoint(pointsStr, pnlStr) {
   return String(-pnl / p);
 }
 
+// 从累计 PNL 时序（[{x, y}]，y 为累计盈亏）切出一周的盈亏：
+// 周 PNL = 周末时刻的累计值 − 周初时刻的累计值。某时刻的累计值取该时刻之前（含）最后一个点；
+// 时刻早于第一个点视为 0（账户尚无盈亏）；周末在未来时自然取到最新点（即本周至今）。
+// x 支持秒或毫秒（>1e11 视为毫秒）；无时序或缺时间戳返回 ""。
+export function weeklyPnlFromPoints(points, startTs, endTs) {
+  if (!Array.isArray(points) || !points.length) return "";
+  const start = Number(startTs), end = Number(endTs);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || startTs === "" || endTs === "") return "";
+  const norm = [];
+  for (const pt of points) {
+    let x = Number(pt && pt.x), y = Number(pt && pt.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    if (x > 1e11) x = x / 1000;
+    norm.push({ x, y });
+  }
+  if (!norm.length) return "";
+  norm.sort((a, b) => a.x - b.x);
+  const cumAt = t => { let v = 0; for (const pt of norm) { if (pt.x <= t) v = pt.y; else break; } return v; };
+  const diff = cumAt(end) - cumAt(start);
+  // 避免浮点尾差把 0 显示成 1e-13。
+  return String(Number(diff.toFixed(8)));
+}
+
 export function computeVolumePerPoint(pointsStr, volumeStr) {
   const p = Number(pointsStr || "0"), v = Number(volumeStr || "0");
   if (!isFinite(p) || !isFinite(v) || p < 0 || v < 0) return "";
