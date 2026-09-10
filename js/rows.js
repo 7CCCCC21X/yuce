@@ -95,8 +95,8 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
       total_volume_shares: totalShares,
       paid_fee_usdt: paidFee, cost_usdt: paidFee, all_fee_usdt: allFee, points,
       cost_per_point: computeCostPerPoint(points, paidFee),
-      // 官网 PNL 是钱包级数值，明细行按本周积分折算。
-      pnl_cost_per_point: computePnlCostPerPoint(points, assets.pnl),
+      // 官网 PNL 是钱包全期数值，分母同口径用钱包总积分（未结算周本周积分为 0，不能作分母）。
+      pnl_cost_per_point: computePnlCostPerPoint(normalizeDecimal(leaderboard.total_points ?? "0"), assets.pnl),
       total_volume_per_point: computeVolumePerPoint(points, totalVolume),
       paid_volume_per_point: computeVolumePerPoint(points, paidVolume),
       free_volume_per_point: computeVolumePerPoint(points, freeVolume),
@@ -165,7 +165,8 @@ export function buildSummaryRows(detailRows) {
     ...row,
     selected_weeks: row.selected_weeks.join(","),
     cost_per_point: computeCostPerPoint(row.points, row.cost_usdt),
-    pnl_cost_per_point: computePnlCostPerPoint(row.points, row.pnl),
+    // 盈亏积分成本 = -官网PNL / 钱包总积分（PNL 与总积分均为钱包全期口径）。
+    pnl_cost_per_point: computePnlCostPerPoint(row.total_points, row.pnl),
     total_volume_per_point: computeVolumePerPoint(row.points, row.total_volume_usdt),
     paid_volume_per_point: computeVolumePerPoint(row.points, row.paid_volume_usdt),
     free_volume_per_point: computeVolumePerPoint(row.points, row.free_volume_usdt),

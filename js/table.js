@@ -334,7 +334,7 @@ export function updateStats() {
     if (r.available_balance_usdt !== "" && r.available_balance_usdt !== undefined && r.available_balance_usdt !== null) { totalBalance += num(r.available_balance_usdt); balanceCount += 1; }
     if (r.net_asset_usdt !== "" && r.net_asset_usdt !== undefined && r.net_asset_usdt !== null) { totalNet += num(r.net_asset_usdt); netCount += 1; }
     if (r.total_points !== "" && r.total_points !== undefined && r.total_points !== null) { totalTotalPoints += num(r.total_points); totalPointsCount += 1; }
-    if (r.pnl !== "" && r.pnl !== undefined && r.pnl !== null) { totalPnl += num(r.pnl); pnlCount += 1; pnlPoints += num(r.points); }
+    if (r.pnl !== "" && r.pnl !== undefined && r.pnl !== null) { totalPnl += num(r.pnl); pnlCount += 1; pnlPoints += num(r.total_points); }
   }
   $("statVolume").textContent = formatMoney(totalVolume);
   $("statShares").textContent = sharesCount ? formatMoney(totalShares) : "—";
@@ -346,7 +346,7 @@ export function updateStats() {
   $("statTotalPoints").textContent = totalPointsCount ? formatTwoDecimal(totalTotalPoints) : "0";
   $("statCalcSplit").textContent = `${calculated} / ${uncalculated}`;
   $("statOverallCpp").textContent = formatCostPerPoint(computeCostPerPoint(totalPoints, totalCost));
-  // 整体盈亏积分成本：只统计取到官网 PNL 的钱包（PNL 与积分同口径求和后相除）。
+  // 整体盈亏积分成本：只统计取到官网 PNL 的钱包，-ΣPNL / Σ钱包总积分（均为钱包全期口径）。
   const statOverallPnlCpp = $("statOverallPnlCpp");
   if (statOverallPnlCpp) {
     const v = pnlCount ? computePnlCostPerPoint(String(pnlPoints), String(totalPnl)) : "";

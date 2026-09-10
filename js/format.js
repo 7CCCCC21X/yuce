@@ -16,7 +16,7 @@ export function computeCostPerPoint(pointsStr, costStr) {
   return String(c / p);
 }
 
-// 盈亏积分成本：按官网 PNL 与积分计算，成本 = -PNL / 积分（亏损为正成本，盈利为负成本）。
+// 盈亏积分成本：按官网 PNL 与钱包总积分计算，成本 = -PNL / 总积分（亏损为正成本，盈利为负成本）。
 // PNL 缺失（未取到）返回 ""；积分为 0 且 PNL 非 0 返回 "Infinity"。
 export function computePnlCostPerPoint(pointsStr, pnlStr) {
   if (pnlStr === "" || pnlStr === undefined || pnlStr === null) return "";

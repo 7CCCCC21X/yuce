@@ -31,8 +31,8 @@ async function queryWallet(wallet, selectedWeeks) {
 // 官网 PNL 单独异步回填，不阻塞主结果渲染。
 function patchWalletPnl(wallet, pnlValue) {
   const s = state.summaryMap.get(wallet);
-  if (s) { s.pnl = pnlValue; s.pnl_cost_per_point = computePnlCostPerPoint(s.points, pnlValue); s._search = null; }
-  for (const r of state.detailRows) if (r.wallet === wallet) { r.pnl = pnlValue; r.pnl_cost_per_point = computePnlCostPerPoint(r.points, pnlValue); r._search = null; }
+  if (s) { s.pnl = pnlValue; s.pnl_cost_per_point = computePnlCostPerPoint(s.total_points, pnlValue); s._search = null; }
+  for (const r of state.detailRows) if (r.wallet === wallet) { r.pnl = pnlValue; r.pnl_cost_per_point = computePnlCostPerPoint(r.total_points, pnlValue); r._search = null; }
 }
 
 async function queryWalletPnl(wallet) {

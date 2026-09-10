@@ -46,7 +46,7 @@ export const numericKeys = new Set([
 ]);
 
 export const CPP_KEYS = new Set(["cost_per_point"]);
-// 盈亏积分成本：-PNL / 积分，允许负值（盈利）。
+// 盈亏积分成本：-官网PNL / 钱包总积分，允许负值（盈利）。
 export const PNL_CPP_KEYS = new Set(["pnl_cost_per_point"]);
 export const VPP_KEYS = new Set(["total_volume_per_point", "paid_volume_per_point", "free_volume_per_point", "shares_per_point"]);
 export const MONEY_KEYS = new Set([
@@ -64,7 +64,7 @@ export const detailColumns = [
   ["points", "本周积分"],
   ["cost_usdt", "手续费"],
   ["cost_per_point", "积分成本 $/积分"],
-  ["pnl_cost_per_point", "盈亏积分成本 $/积分"],
+  ["pnl_cost_per_point", "盈亏积分成本 $/总积分"],
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],
   ["net_asset_usdt", "净资产"],
@@ -94,7 +94,7 @@ export const summaryColumns = [
   ["cost_usdt", "选中周手续费"],
   ["all_fee_usdt", "全部手续费"],
   ["cost_per_point", "积分成本 $/积分"],
-  ["pnl_cost_per_point", "盈亏积分成本 $/积分"],
+  ["pnl_cost_per_point", "盈亏积分成本 $/总积分"],
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],
   ["net_asset_usdt", "净资产"],
