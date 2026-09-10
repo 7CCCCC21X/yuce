@@ -4,7 +4,7 @@ import { $ } from "./dom.js";
 import { normalizeDecimal, decimalAdd, decimalMul } from "./decimal.js";
 import {
   joinErrors, timestampToUTC8,
-  computeCostPerPoint, computeVolumePerPoint, computeOptionalVolumePerPoint,
+  computeCostPerPoint, computePnlCostPerPoint, computeVolumePerPoint, computeOptionalVolumePerPoint,
   isValidCpp, cppSortValue
 } from "./format.js";
 import { fetchTradeShares } from "./api.js";
@@ -65,7 +65,7 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
         allocation_round_points: normalizeDecimal(leaderboard.allocation_round_points ?? "0"),
         week: weekNo, calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
         trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
-        paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: allFee, points: "0", cost_per_point: "",
+        paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: allFee, points: "0", cost_per_point: "", pnl_cost_per_point: "",
         total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "",
         referral_points: "0", ...assets, error: joinErrors("接口没有返回这一周", assetError)
       };
@@ -95,6 +95,8 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
       total_volume_shares: totalShares,
       paid_fee_usdt: paidFee, cost_usdt: paidFee, all_fee_usdt: allFee, points,
       cost_per_point: computeCostPerPoint(points, paidFee),
+      // 官网 PNL 是钱包级数值，明细行按本周积分折算。
+      pnl_cost_per_point: computePnlCostPerPoint(points, assets.pnl),
       total_volume_per_point: computeVolumePerPoint(points, totalVolume),
       paid_volume_per_point: computeVolumePerPoint(points, paidVolume),
       free_volume_per_point: computeVolumePerPoint(points, freeVolume),
@@ -112,7 +114,7 @@ export function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceRe
     wallet, status: "error",
     total_points: "0", allocation_round_points: "0", week: "", calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
     trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
-    paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", cost_per_point: "",
+    paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", cost_per_point: "", pnl_cost_per_point: "",
     total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "", referral_points: "0",
     ...assets,
     error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error)
@@ -163,6 +165,7 @@ export function buildSummaryRows(detailRows) {
     ...row,
     selected_weeks: row.selected_weeks.join(","),
     cost_per_point: computeCostPerPoint(row.points, row.cost_usdt),
+    pnl_cost_per_point: computePnlCostPerPoint(row.points, row.pnl),
     total_volume_per_point: computeVolumePerPoint(row.points, row.total_volume_usdt),
     paid_volume_per_point: computeVolumePerPoint(row.points, row.paid_volume_usdt),
     free_volume_per_point: computeVolumePerPoint(row.points, row.free_volume_usdt),

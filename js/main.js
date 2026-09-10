@@ -4,7 +4,7 @@ import { $, debounce, copyText } from "./dom.js";
 import { toast } from "./toast.js";
 import { log, setLog } from "./log.js";
 import { state, summaryColumns, detailColumns, summaryExportColumns, detailExportColumns } from "./state.js";
-import { csvEscape } from "./format.js";
+import { csvEscape, computePnlCostPerPoint } from "./format.js";
 import { extractWallets, parseWeeks } from "./parse.js";
 import { rateLimiter, fetchWallet, fetchPositionValue, fetchUsdtBalance, fetchOfficialPortfolioPnl, shouldQueryPnl, shouldQueryShares, shouldQueryHoldings, shouldQueryBalance } from "./api.js";
 import { buildRows, buildErrorDetailRow, buildSummaryRows } from "./rows.js";
@@ -31,8 +31,8 @@ async function queryWallet(wallet, selectedWeeks) {
 // 官网 PNL 单独异步回填，不阻塞主结果渲染。
 function patchWalletPnl(wallet, pnlValue) {
   const s = state.summaryMap.get(wallet);
-  if (s) { s.pnl = pnlValue; s._search = null; }
-  for (const r of state.detailRows) if (r.wallet === wallet) { r.pnl = pnlValue; r._search = null; }
+  if (s) { s.pnl = pnlValue; s.pnl_cost_per_point = computePnlCostPerPoint(s.points, pnlValue); s._search = null; }
+  for (const r of state.detailRows) if (r.wallet === wallet) { r.pnl = pnlValue; r.pnl_cost_per_point = computePnlCostPerPoint(r.points, pnlValue); r._search = null; }
 }
 
 async function queryWalletPnl(wallet) {
@@ -203,12 +203,12 @@ function setupListeners() {
 
   $("filterInput").addEventListener("input", e => { state.filterText = e.target.value || ""; debouncedRender(); });
   $("onlyCalculated").addEventListener("change", e => { state.onlyCalculated = e.target.checked; renderAll(); });
-  for (const id of ["minPoints", "minBalance", "minHolding", "maxHolding", "minNetAsset", "maxNetAsset", "maxReferralPoints", "maxCpp", "maxCost", "maxAllFee"]) {
+  for (const id of ["minPoints", "minBalance", "minHolding", "maxHolding", "minNetAsset", "maxNetAsset", "maxReferralPoints", "maxCpp", "maxPnlCpp", "maxCost", "maxAllFee"]) {
     $(id).addEventListener("input", e => { state[id] = readMinInput(e.target); debouncedRender(); });
   }
   $("sortPresetSelect").addEventListener("change", e => { const [key, dir] = String(e.target.value || "cost_per_point:asc").split(":"); state.sort.summary = { key, dir: dir === "asc" ? "asc" : "desc" }; renderAll(); });
   $("quickBestBtn").addEventListener("click", () => { state.minPoints = 10000; state.maxCpp = 0.00005; state.onlyCalculated = true; $("minPoints").value = "10000"; $("maxCpp").value = "0.00005"; $("onlyCalculated").checked = true; state.sort.summary = { key: "cost_per_point", dir: "asc" }; renderAll(); });
-  $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.maxHolding = state.minNetAsset = state.maxNetAsset = state.maxReferralPoints = state.maxCpp = state.maxCost = state.maxAllFee = 0; state.onlyCalculated = false; state.onlyFailed = false; ["minPoints","minBalance","minHolding","maxHolding","minNetAsset","maxNetAsset","maxReferralPoints","maxCpp","maxCost","maxAllFee"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
+  $("resetFiltersBtn").addEventListener("click", () => { state.minPoints = state.minBalance = state.minHolding = state.maxHolding = state.minNetAsset = state.maxNetAsset = state.maxReferralPoints = state.maxCpp = state.maxPnlCpp = state.maxCost = state.maxAllFee = 0; state.onlyCalculated = false; state.onlyFailed = false; ["minPoints","minBalance","minHolding","maxHolding","minNetAsset","maxNetAsset","maxReferralPoints","maxCpp","maxPnlCpp","maxCost","maxAllFee"].forEach(id => $(id).value = ""); $("onlyCalculated").checked = false; renderAll(); });
 
   document.querySelectorAll(".tab").forEach(tab => {
     tab.addEventListener("click", () => {

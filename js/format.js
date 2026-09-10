@@ -1,4 +1,4 @@
-// 展示格式化与指标计算（积分成本 / 量分比等）。
+// 展示格式化与指标计算（积分成本 / 盈亏积分成本 / 量分比等）。
 
 export function num(value, fallback = 0) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
 export function formatTwoDecimal(value) { const n = Number(String(value ?? "").replace(/,/g, "")); return Number.isFinite(n) ? n.toFixed(2) : "—"; }
@@ -14,6 +14,18 @@ export function computeCostPerPoint(pointsStr, costStr) {
   if (p === 0) return "Infinity";
   if (c === 0) return "0";
   return String(c / p);
+}
+
+// 盈亏积分成本：按官网 PNL 与积分计算，成本 = -PNL / 积分（亏损为正成本，盈利为负成本）。
+// PNL 缺失（未取到）返回 ""；积分为 0 且 PNL 非 0 返回 "Infinity"。
+export function computePnlCostPerPoint(pointsStr, pnlStr) {
+  if (pnlStr === "" || pnlStr === undefined || pnlStr === null) return "";
+  const p = Number(pointsStr || "0"), pnl = Number(pnlStr);
+  if (!isFinite(p) || !isFinite(pnl) || p < 0) return "";
+  if (p === 0 && pnl === 0) return "";
+  if (p === 0) return "Infinity";
+  if (pnl === 0) return "0";
+  return String(-pnl / p);
 }
 
 export function computeVolumePerPoint(pointsStr, volumeStr) {
@@ -41,6 +53,18 @@ export function formatCostPerPoint(s) {
   return "$" + n.toExponential(2);
 }
 
+// 盈亏积分成本展示：负数表示每积分净盈利，前面带 "-" 号。
+export function formatPnlCostPerPoint(s) {
+  if (s === "" || s === undefined || s === null) return "—";
+  if (s === "Infinity") return "无积分";
+  const n = Number(s);
+  if (!Number.isFinite(n)) return "—";
+  if (n === 0) return "免费";
+  const abs = Math.abs(n);
+  const body = abs >= 1 ? abs.toFixed(2) : abs >= 0.01 ? abs.toFixed(4) : abs >= 0.0001 ? abs.toFixed(5) : abs.toExponential(2);
+  return (n < 0 ? "-$" : "$") + body;
+}
+
 export function formatVolumePerPoint(s) {
   if (s === "" || s === undefined || s === null) return "—";
   if (s === "Infinity") return "无积分";
@@ -58,6 +82,18 @@ export function cppSortValue(v) {
   if (v === "" || v === undefined || v === null || v === "Infinity") return Number.POSITIVE_INFINITY;
   const n = Number(v);
   return Number.isFinite(n) && n >= 0 ? n : Number.POSITIVE_INFINITY;
+}
+
+export function isValidPnlCpp(v) {
+  if (v === "" || v === undefined || v === null || v === "Infinity") return false;
+  return Number.isFinite(Number(v));
+}
+
+// 盈亏积分成本允许负值（盈利）；缺失 / 无积分排到最后。
+export function pnlCppSortValue(v) {
+  if (v === "" || v === undefined || v === null || v === "Infinity") return Number.POSITIVE_INFINITY;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
 }
 
 export function vppSortValue(v) {

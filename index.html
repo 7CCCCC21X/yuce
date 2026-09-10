@@ -57,6 +57,11 @@
           <div class="stat-label">整体积分成本</div>
           <div class="stat-value"><span id="statOverallCpp">—</span><span class="unit">/积分</span></div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label">整体盈亏积分成本</div>
+          <div class="stat-value"><span id="statOverallPnlCpp">—</span><span class="unit">/积分</span></div>
+          <div class="stat-sub">-官网PNL ÷ 积分，负数表示每积分净盈利</div>
+        </div>
         <div class="stat-card" id="statPnlCard">
           <div class="stat-label">官网总盈利 PNL</div>
           <div class="stat-value"><span id="statPnl">—</span><span class="unit">U</span></div>
@@ -120,6 +125,7 @@
       <span class="best-stat"><span class="muted">积分</span> <b id="bestPoints">0</b></span>
       <span class="best-stat"><span class="muted">手续费</span> <b id="bestCost">0</b> U</span>
       <span class="best-stat"><span class="muted">积分成本</span> <b id="bestCpp" class="hot">—</b> <span class="muted">/积分</span></span>
+      <span class="best-stat"><span class="muted">盈亏积分成本</span> <b id="bestPnlCpp">—</b> <span class="muted">/积分</span></span>
       <span class="best-stat"><span class="muted">持仓</span> <b id="bestHolding">—</b> U</span>
       <span class="best-stat"><span class="muted">余额</span> <b id="bestBalance">—</b> U</span>
       <span class="best-stat"><span class="muted">净资产</span> <b id="bestNetAsset">—</b> U</span>
@@ -245,6 +251,7 @@ https://bsc.drpc.org</textarea>
         <div class="control-group"><label for="maxNetAsset">净资产</label><input id="maxNetAsset" type="number" min="0" step="any" placeholder="0" /></div>
         <div class="control-group"><label for="maxReferralPoints">推荐积分</label><input id="maxReferralPoints" type="number" min="0" step="any" placeholder="0" /></div>
         <div class="control-group"><label for="maxCpp">积分成本</label><input id="maxCpp" type="number" min="0" step="any" placeholder="0.00005" /></div>
+        <div class="control-group"><label for="maxPnlCpp">盈亏积分成本</label><input id="maxPnlCpp" type="number" min="0" step="any" placeholder="0.0001" /></div>
         <div class="control-group"><label for="maxCost">选中周手续费</label><input id="maxCost" type="number" min="0" step="any" placeholder="0" /></div>
         <div class="control-group"><label for="maxAllFee">全部手续费</label><input id="maxAllFee" type="number" min="0" step="any" placeholder="0" /></div>
         <button id="quickBestBtn" class="secondary quickBtnHot" type="button">低手续费高积分</button>
@@ -256,6 +263,7 @@ https://bsc.drpc.org</textarea>
         <div class="rowCount" id="rowCount">0 行</div>
         <select id="sortPresetSelect" title="推荐排序">
           <option value="cost_per_point:asc">积分成本最低</option>
+          <option value="pnl_cost_per_point:asc">盈亏积分成本最低</option>
           <option value="points:desc">积分最多</option>
           <option value="net_asset_usdt:desc">净资产最高</option>
           <option value="pnl:desc">官网PNL最高</option>
