@@ -61,6 +61,28 @@ API 函数 `maxDuration` 设为 15s。
 凭证缺失时函数仍会以匿名身份请求（公开数据可能可用），并在日志里
 输出一次性警告。
 
+## 持仓金额：REST 汇总（/api/positions-value）
+
+predict.fun 前置的 Cloudflare 会拦下 Vercel 出口发往 GraphQL 的请求（403 +
+「Attention Required!」页，换区域、换请求头都无效），`/api/portfolio` 与
+`/api/portfolio-pnl` 因此在 Vercel 上不可用。`api.predict.fun` 的官方 REST
+接口是给程序调用的，不受此限制。
+
+持仓金额默认改由 `/api/positions-value?address=0x…` 提供：服务端用
+`PREDICT_API_KEY` 调 `GET /v1/positions/{address}`，跟随响应里的 `cursor`
+翻完所有分页，对每个持仓估值后汇总。实测响应里 `amount` 是 wei
+（份额 × 1e18），`averageBuyPriceUsd` 是普通小数，估值规则：
+
+1. 持仓自带 `valueUsd` 之类直接字段 → 直接用（wei 则换算）；
+2. 否则 份额 × 当前价（持仓自带价格字段 → 所属 outcome 的 `bestBid.price`
+   → `bestAsk.price` → 市场最新成交价）。
+
+同时返回 `costUsd`（份额 × 均价）与 `unrealizedPnlUsd`（市值 − 成本）；
+`?debug=1` 可看每个持仓的取价明细（`breakdown`）与首页原始响应，用来核对
+口径。空持仓列表记为 0。用户名与官网 PNL 只有 GraphQL 提供，REST 模式下
+为空。旧配置里仍是 `/api/portfolio?address={wallet}` 默认值的，加载 / 导入
+时自动改为新模板。
+
 ## API 约定
 
 - 响应统一为 `{ success: true, ... }` / `{ success: false, error: "..." }`。
