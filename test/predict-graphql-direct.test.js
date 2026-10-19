@@ -56,9 +56,9 @@ test('fetchPnlDirect: 跟随 hasNextPage 翻页、按 x 排序、信封含 point
   const post = async op => { calls.push(op.variables); return { data: { account: { pnlTimeseries: pages[calls.length - 1] } } }; };
   const env = await fetchPnlDirect(post, ADDR_LOWER, 'ALL');
   assert.strictEqual(calls.length, 2);
-  // 首页不带 pagination 字段，第二页带 after=endCursor；ALL 实际发送 MAX。
-  assert.strictEqual('pagination' in calls[0], false);
-  assert.deepStrictEqual(calls[1].pagination, { after: 'c2' });
+  // 与官网一致：首页 { first: 750 }，第二页追加 after=endCursor；ALL 实际发送 MAX。
+  assert.deepStrictEqual(calls[0].pagination, { first: 750 });
+  assert.deepStrictEqual(calls[1].pagination, { first: 750, after: 'c2' });
   assert.strictEqual(calls[0].filter.interval, 'MAX');
   assert.strictEqual(env.success, true);
   assert.strictEqual(env.pnlUsd, 3.5);

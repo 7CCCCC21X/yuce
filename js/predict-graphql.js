@@ -63,6 +63,8 @@ let resolvedAllInterval = "MAX";
 
 // 分页保护上限：足够覆盖很长的时序，同时防止上游异常时无限翻页。
 export const MAX_PAGES = 25;
+// 每页条数：与官网 GetAccountPnlTimeseries 真实请求一致（pagination: { first: 750 }）。
+export const PAGE_SIZE = 750;
 
 const ETH_RE = /^0x[0-9a-fA-F]{40}$/;
 
@@ -137,7 +139,7 @@ export function pointsFromEdges(edges) {
 }
 
 // 跟随 hasNextPage 翻页取完整时序，保证「最新一个点」不会因为分页被截断。
-// 变量形状与 api/portfolio-pnl.js 完全一致（首页不带 pagination 字段）。
+// 变量形状与官网真实请求、api/portfolio-pnl.js 一致：首页 { first }，后续页 { first, after }。
 async function fetchPnlPoints(post, address, interval) {
   const points = [];
   let after = null;
@@ -145,7 +147,7 @@ async function fetchPnlPoints(post, address, interval) {
   let pages = 0;
   let truncated = false;
   while (pages < MAX_PAGES) {
-    const variables = { address, filter: { interval }, ...(after ? { pagination: { after } } : {}) };
+    const variables = { address, filter: { interval }, pagination: { first: PAGE_SIZE, ...(after ? { after } : {}) } };
     const json = await post({ query: PNL_QUERY, variables, operationName: "GetAccountPnlTimeseries" });
     lastPayload = json;
     pages += 1;
