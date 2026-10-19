@@ -187,7 +187,15 @@ async function predictGraphql({ query, variables, operationName }) {
   if (cf) {
     const what = cf.challenge ? 'issued a browser challenge' : 'blocked the request';
     const ids = [cf.code && `error ${cf.code}`, cf.ray && `Ray ID ${cf.ray}`].filter(Boolean).join(', ');
-    const err = new Error(`Cloudflare ${what} before it reached predict.fun GraphQL (HTTP ${upstream.status}${ids ? '; ' + ids : ''}). The proxy's IP or request fingerprint is being rejected — this is not an expired PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE.`);
+    // Ray ID 的后缀是处理该请求的 Cloudflare 节点（IAD = 华盛顿、SFO = 旧金山……），
+    // 也就暴露了本函数的出口位置。美国节点被拒多半是预测市场按地区封锁美国 IP，
+    // 把 vercel.json 的 regions 改到非美国区域（如 sin1 / hkg1 / hnd1）即可。
+    const colo = (cf.ray.match(/-([A-Z]{3})$/) || [])[1] || '';
+    const usColos = new Set(['IAD', 'SFO', 'LAX', 'SEA', 'ORD', 'DFW', 'ATL', 'MIA', 'EWR', 'PDX', 'SJC', 'DEN', 'BOS', 'PHX']);
+    const regionHint = colo && usColos.has(colo)
+      ? ` The function is running from a US location (${colo}); predict.fun likely geo-blocks US IPs — set "regions" in vercel.json to a non-US region such as sin1.`
+      : '';
+    const err = new Error(`Cloudflare ${what} before it reached predict.fun GraphQL (HTTP ${upstream.status}${ids ? '; ' + ids : ''}). The proxy's IP or request fingerprint is being rejected — this is not an expired PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE.${regionHint}`);
     err.status = 502;
     err.raw = text.slice(0, 800);
     err.cloudflare = cf;

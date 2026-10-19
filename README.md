@@ -34,7 +34,10 @@
 ## 部署
 
 直接部署到 Vercel：导入仓库即可，无需构建命令。`vercel.json` 已将
-API 函数 `maxDuration` 设为 15s。
+API 函数 `maxDuration` 设为 15s，并把函数区域固定为新加坡 `sin1`：
+Vercel 默认区域是美国东部 `iad1`，predict.fun 前置的 Cloudflare 对来自
+美国的请求直接返回 403（Ray ID 以 `-IAD` 结尾即是），换到非美国区域才能
+到达上游。改了 `regions` 需要重新部署才生效。
 
 ## 环境变量
 
@@ -71,9 +74,11 @@ GraphQL 的 JSON。函数默认以浏览器请求头（UA、`sec-ch-ua`、`Sec-F
 `PREDICT_GRAPHQL_USER_AGENT` 覆盖 UA 而无需改代码。
 
 被拦截时错误信息会明确写「Cloudflare blocked the request」并附带 CF 错误码
-与 Ray ID（`?debug=1` 可看原始 HTML），与凭证过期的提示区分开。若带上浏览器
-头之后仍被拦（按 IP / ASN / TLS 指纹封锁 Vercel 出口），则换 UA 无效，
-此时靠下面的浏览器直连。
+与 Ray ID（`?debug=1` 可看原始 HTML），与凭证过期的提示区分开。Ray ID 的
+三字母后缀是 Cloudflare 节点，也就是函数的出口位置：`-IAD`、`-SFO` 等美国
+节点被拒，优先怀疑地区封锁，错误信息会直接提示改 `vercel.json` 的
+`regions`。若换到非美国区域仍被拦（按 ASN / TLS 指纹封锁），则靠下面的
+浏览器直连。
 
 ### 持仓金额：REST 优先
 
