@@ -38,7 +38,11 @@ function detectCloudflareBlock(upstream, text) {
   const looksHtml = /^\s*<!doctype html|^\s*<html/i.test(text);
   const mentionsCf = /cloudflare|cf-error|cf-ray|attention required|just a moment/i.test(text);
   if (!looksHtml || !(mentionsCf || server.includes('cloudflare'))) return null;
-  const code = text.match(/cf-error-code[^>]*>\s*(\d+)/i)?.[1] || text.match(/error code[:\s]*(\d{3,4})/i)?.[1] || '';
+  const code = text.match(/cf-error-code[^>]*>\s*(\d+)/i)?.[1]
+    || text.match(/code-label[^>]*>\s*(\d+)/i)?.[1]
+    || text.match(/error code[:\s]*(\d{3,4})/i)?.[1]
+    || text.match(/\bError\s+(1\d{3})\b/)?.[1]
+    || '';
   const ray = upstream.headers.get('cf-ray') || text.match(/ray id:?\s*(?:<[^>]*>\s*)*([0-9a-f]{12,})/i)?.[1] || '';
   const challenge = /just a moment|challenge-platform|cf-chl/i.test(text);
   return { code, ray, challenge };

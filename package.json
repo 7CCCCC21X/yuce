@@ -4,7 +4,8 @@
   "private": true,
   "description": "OPINX Predict 积分批量查询工具（静态前端 + Vercel Serverless API）",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "dev": "node tools/local-server.js"
   },
   "engines": {
     "node": "22.x"

@@ -117,14 +117,32 @@ Cloudflare，完全不经过 Vercel 出口。查询与翻页逻辑在 `js/predic
 - 上游超时 → 504；会话凭证被拒（401/403）→ 502 并附带刷新提示。
 - 函数日志为结构化 JSON（`console.error`），不会记录任何凭证。
 
+### Vercel 出口被整段封锁时：本机运行
+
+换区域（`-SIN`）后仍被 Cloudflare 403，说明封的是 Vercel 的 IP 段 / TLS
+指纹，服务端这条路从 Vercel 出去走不通。此时用 `tools/local-server.js`
+把页面和 `api/` 函数一起跑在自己电脑上，用自己的住宅 IP 访问 Predict：
+
+```bash
+npm run dev                                   # http://localhost:3000
+PREDICT_API_KEY=xxx npm run dev               # REST 持仓代理需要 key
+# 走 Clash 等本地代理（Node ≥ 24），或把代理软件切到 TUN 模式：
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7897 npm run dev
+```
+
+页面与 `/api/` 同源，没有 CORS 等浏览器限制。也可以只借用它的 `/api/`：
+线上页面的持仓 / PNL 模板填 `http://localhost:3000/api/portfolio?address={wallet}`
+等，响应已带 CORS 与私有网络访问头。
+
 ## 本地开发
 
 前端使用原生 ES 模块，**必须通过 HTTP 访问**（`file://` 打不开）：
 
 ```bash
-npx serve .        # 仅前端静态页
+npm run dev        # 前端 + api/ 函数一起跑（tools/local-server.js，零依赖）
 # 或
-vercel dev         # 前端 + api/ 函数一起跑
+npx serve .        # 仅前端静态页
+vercel dev         # Vercel 官方开发服务器
 ```
 
 ## 测试
