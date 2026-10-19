@@ -185,17 +185,35 @@
 
         <div>
           <label class="checkbox" style="margin-top:24px;"><input id="queryHoldings" type="checkbox" checked />查询持仓金额 + 用户名</label>
-          <div class="help">官网口径：GraphQL GetPortfolio 的 statistics.positionsValueUsd（同时返回用户名 name）。</div>
+          <div class="help">默认走 Predict REST /v1/positions（经 /api/predict 代理，需 Vercel 配置 PREDICT_API_KEY），累加 valueUsd；REST 失败时回退 GraphQL GetPortfolio（官网口径 positionsValueUsd，含用户名）。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="positionApiTemplate">持仓 API 模板</label>
-          <input id="positionApiTemplate" type="text" value="/api/portfolio?address={wallet}" />
-          <div class="help">默认走同域代理 /api/portfolio；服务端转发到 Predict.fun GraphQL GetPortfolio，返回官网展示的持仓金额(positionsValueUsd)和用户名(name)。</div>
+          <input id="positionApiTemplate" type="text" value="/api/predict?network=mainnet&amp;path=/v1/positions/{wallet}" />
+          <div class="help">REST 不受 Cloudflare 人机拦截。填 /api/portfolio?address={wallet} 可改为只走 GraphQL（按下方「请求方式」直连或代理）。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="graphqlMode">GraphQL 请求方式（官网 PNL，及持仓回退）</label>
+          <select id="graphqlMode">
+            <option value="auto" selected>自动：先浏览器直连 Predict GraphQL，失败再走同域代理</option>
+            <option value="direct">仅浏览器直连</option>
+            <option value="proxy">仅同域代理（/api/portfolio、/api/portfolio-pnl）</option>
+          </select>
+          <div class="help">Vercel 出口请求 graphql.predict.fun 会被 Cloudflare 拦截；浏览器直连用的是你自己已通过 Cloudflare 校验的身份，不经过 Vercel。直连被 CORS 拒绝时本轮会自动改走代理。</div>
+        </div>
+        <div>
+          <label for="graphqlUrl">Predict GraphQL 地址</label>
+          <input id="graphqlUrl" type="text" value="https://graphql.predict.fun/graphql" />
+        </div>
+        <div>
+          <label for="graphqlAuth">GraphQL Authorization（可选）</label>
+          <input id="graphqlAuth" type="password" placeholder="直连时附带的 authorization 请求头值，匿名可查则留空" autocomplete="off" />
+          <div class="help">只保存在本机浏览器。登录 predict.fun 后在 DevTools → Network 的 GraphQL 请求头里复制。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="positionValuePaths">持仓金额字段路径</label>
-          <input id="positionValuePaths" type="text" value="positionsValueUsd,statistics.positionsValueUsd,data.statistics.positionsValueUsd,data.account.statistics.positionsValueUsd" />
-          <div class="help">多个路径用英文逗号分隔。默认取 GetPortfolio 的 positionsValueUsd（即官网 Portfolio 卡片显示的持仓金额）。</div>
+          <input id="positionValuePaths" type="text" value="data[].valueUsd,data[].currentValueUsd,positions[].valueUsd,list[].valueUsd,positionsValueUsd,statistics.positionsValueUsd" />
+          <div class="help">多个路径用英文逗号分隔，命中多个值时累加。默认同时兼容 REST 持仓列表的 valueUsd 与 GraphQL GetPortfolio 的 positionsValueUsd。</div>
         </div>
 
         <div>
