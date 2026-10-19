@@ -4,7 +4,6 @@
 import { $, sleep } from "./dom.js";
 import { state } from "./state.js";
 import { normalizeDecimal, decimalSum, formatScaled } from "./decimal.js";
-import { DEFAULT_GRAPHQL_URL, fetchPortfolioDirect, fetchPnlDirect } from "./predict-graphql.js";
 
 export const rateLimiter = {
   times: [],
@@ -87,59 +86,6 @@ export async function fetchWithRetries(url, extraHeaders = {}) {
   throw new Error(lastError || "请求失败");
 }
 
-// POST JSON（浏览器直连 GraphQL 用）。限流 / 超时 / 停止与 GET 一致。
-// 不走 applyProxy：直连的意义就是用浏览器自己的身份直接到达目标站。
-export async function postJsonWithTimeout(url, body, timeoutMs, extraHeaders = {}) {
-  const timeoutController = new AbortController();
-  const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
-  const signal = anySignal([timeoutController.signal, state.runController?.signal]);
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      mode: "cors",
-      credentials: "omit",
-      headers: { "Content-Type": "application/json", "Accept": "application/graphql-response+json, application/json", ...extraHeaders },
-      body: JSON.stringify(body),
-      cache: "no-store",
-      signal
-    });
-    const text = await res.text().catch(() => "");
-    if (!res.ok) {
-      const err = new Error(`HTTP ${res.status} ${res.statusText}${text ? " - " + text.slice(0, 160) : ""}`);
-      err.status = res.status;
-      throw err;
-    }
-    return text ? JSON.parse(text) : null;
-  } catch (err) {
-    throw normalizeAbortError(err);
-  } finally { clearTimeout(timer); }
-}
-
-// 浏览器 fetch 在 CORS 被拒 / DNS 不通 / 连接被重置时统一抛 TypeError("Failed to fetch")，
-// 拿不到状态码。这类错误重试也不会变好，直接判定为「直连不可用」。
-export function isDirectUnavailableError(err) {
-  return !!err && err.name === "TypeError";
-}
-
-export async function postJsonWithRetries(url, body, extraHeaders = {}) {
-  const retries = Math.max(0, Number($("retries").value || 0));
-  const timeoutMs = Math.max(3000, Number($("timeoutMs").value || 20000));
-  let lastError = null;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    if (state.abort) throw new Error("已停止");
-    await rateLimiter.acquire();
-    if (state.abort) throw new Error("已停止");
-    try { return await postJsonWithTimeout(url, body, timeoutMs, extraHeaders); }
-    catch (err) {
-      lastError = err;
-      const message = err && err.message ? err.message : String(err);
-      if (message === "已停止" || isDirectUnavailableError(err)) throw err;
-      if (attempt < retries) await sleep(700 * (attempt + 1));
-    }
-  }
-  throw lastError || new Error("请求失败");
-}
-
 // ---------- JSON 路径取值 ----------
 
 export function pathValues(obj, path) {
@@ -212,75 +158,6 @@ export function shouldQueryHoldings() { const el = $("queryHoldings"); return !e
 export function shouldQueryBalance() { const el = $("queryBalance"); return !el || el.checked; }
 export function shouldQueryPnl() { const el = $("queryPnl"); return !el || el.checked; }
 
-// ---------- 浏览器直连 Predict GraphQL ----------
-
-// auto：先直连，失败再走同域代理；direct：只直连；proxy：只走代理（旧行为）。
-export function graphqlMode() {
-  const v = $("graphqlMode") ? String($("graphqlMode").value || "").trim() : "";
-  return v === "direct" || v === "proxy" ? v : "auto";
-}
-
-// 本轮内直连一旦被 CORS / 网络层拒绝，就记住原因，后续钱包不再逐个碰壁。
-let directUnavailableReason = "";
-export function resetDirectState() { directUnavailableReason = ""; }
-
-function describeDirectError(err) {
-  const message = err && err.message ? err.message : String(err);
-  if (isDirectUnavailableError(err)) return "浏览器直连被拒绝（目标站未开放 CORS，或网络不通）";
-  return message;
-}
-
-async function graphqlPost(op) {
-  const url = (($("graphqlUrl") && $("graphqlUrl").value) || "").trim() || DEFAULT_GRAPHQL_URL;
-  const auth = (($("graphqlAuth") && $("graphqlAuth").value) || "").trim();
-  const headers = auth ? { Authorization: auth } : {};
-  const json = await postJsonWithRetries(url, op, headers);
-  if (json && Array.isArray(json.errors) && json.errors.length) {
-    const err = new Error(json.errors[0]?.message || "GraphQL 返回错误");
-    err.raw = json;
-    throw err;
-  }
-  return json;
-}
-
-// 统一的「直连优先，按模式回退」调度。
-// runDirect / runProxy 都返回同一形状的信封对象；失败时抛错。
-// 返回 { data, directError }：data 为空表示两条路都没走通，directError 带直连失败原因。
-async function withGraphqlFallback(runDirect, runProxy) {
-  const mode = graphqlMode();
-  let directError = null;
-  if (mode !== "proxy") {
-    if (directUnavailableReason) {
-      directError = new Error(directUnavailableReason);
-    } else {
-      try {
-        return { data: await runDirect(), directError: null };
-      } catch (err) {
-        const message = err && err.message ? err.message : String(err);
-        if (state.abort || message === "已停止") throw err;
-        directError = err;
-        if (isDirectUnavailableError(err)) directUnavailableReason = describeDirectError(err);
-      }
-    }
-    if (mode === "direct") return { data: null, directError };
-  }
-  try {
-    const data = await runProxy();
-    return { data, directError };
-  } catch (err) {
-    // 代理也失败时把直连原因挂在异常上，调用方的错误信息才能同时说明两边。
-    if (err && typeof err === "object" && directError) err.directError = directError;
-    throw err;
-  }
-}
-
-function joinFailure(label, proxyError, directError) {
-  const parts = [];
-  if (directError) parts.push(`直连: ${describeDirectError(directError)}`);
-  if (proxyError) parts.push(`代理: ${proxyError}`);
-  return `${label}: ${parts.join("；")}`;
-}
-
 // ---------- 各数据源 ----------
 
 export async function fetchWallet(wallet) { return fetchWithRetries(makeUrl(wallet)); }
@@ -299,102 +176,42 @@ export async function fetchTradeShares(wallet, startTime, endTime) {
   }
 }
 
-// 持仓金额：默认走 Predict REST /v1/positions（经 /api/predict 代理，api.predict.fun 是
-// 给程序调用的接口，不受 Cloudflare 人机拦截），累加每个持仓的 valueUsd。
-// REST 失败或模板本身指向 GraphQL 代理时，再按「请求方式」走 GraphQL GetPortfolio
-//（官网口径 positionsValueUsd + 用户名）。
-export const REST_POSITIONS_TEMPLATE = "/api/predict?network=mainnet&path=/v1/positions/{wallet}";
-export const DEFAULT_POSITION_VALUE_PATHS = "data[].valueUsd,data[].currentValueUsd,positions[].valueUsd,list[].valueUsd,positionsValueUsd,statistics.positionsValueUsd";
-const GRAPHQL_POSITION_VALUE_PATHS = ["positionsValueUsd", "statistics.positionsValueUsd", "data.statistics.positionsValueUsd", "data.account.statistics.positionsValueUsd"];
-
-export function isGraphqlProxyTemplate(url) {
-  return /\/api\/portfolio(\?|$)/.test(String(url || "")) || /graphql/i.test(String(url || ""));
-}
-
-// 从持仓响应里取出金额列表与用户名。listed=true 表示响应就是一份持仓列表
-//（即使为空）——空列表意味着持仓为 0，而不是「没取到」。
-function extractHoldings(data) {
-  const pathText = ($("positionValuePaths") && $("positionValuePaths").value) || DEFAULT_POSITION_VALUE_PATHS;
-  let values = valuesFromPathText(data, pathText);
-  const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.positions) ? data.positions : Array.isArray(data?.list) ? data.list : null;
-  if (!values.length && list) {
-    values = list.map(x => x?.valueUsd ?? x?.currentValueUsd ?? x?.value_usd ?? x?.current_value_usd).filter(v => v !== undefined && v !== null && v !== "").map(v => normalizeDecimal(v));
-  }
-  if (!values.length) {
-    const v = firstValueFromPaths(data, GRAPHQL_POSITION_VALUE_PATHS);
-    if (v !== undefined && v !== null && v !== "") values = [normalizeDecimal(v)];
-  }
-  const nameRaw = firstValueFromPaths(data, ["name", "account.name", "data.name", "data.account.name"]);
-  const name = nameRaw !== undefined && nameRaw !== null ? String(nameRaw) : "";
-  return { values, name, listed: !!list };
-}
-
-function holdingsFailure(parts) {
-  const text = parts.filter(([, msg]) => msg).map(([label, msg]) => `${label}: ${msg}`).join("；");
-  return `持仓接口失败: ${text || "未知错误"}`;
-}
-
 export async function fetchPositionValue(wallet) {
   if (!shouldQueryHoldings()) return { holding_amount_usdt: "", name: "", error: "" };
-  const template = makePositionUrl(wallet);
-  const restFirst = !isGraphqlProxyTemplate(template);
-  let restError = "";
-  if (restFirst) {
-    try {
-      const data = await fetchWithRetries(template);
-      const { values, name, listed } = extractHoldings(data);
-      if (values.length) return { holding_amount_usdt: decimalSum(values), name, error: "" };
-      if (listed) return { holding_amount_usdt: "0", name, error: "" };
-      restError = data && data.error ? String(data.error) : "返回了数据，但没有取到持仓金额";
-    } catch (err) {
-      const message = err && err.message ? err.message : String(err);
-      if (state.abort || message === "已停止") throw err;
-      restError = message;
-    }
-  }
-  // GraphQL 回退（直连 → 同域代理，按「请求方式」设置）。
-  let directError = null;
   try {
-    let data;
-    ({ data, directError } = await withGraphqlFallback(
-      () => fetchPortfolioDirect(graphqlPost, wallet),
-      () => fetchWithRetries(restFirst ? `/api/portfolio?address=${wallet}` : template)
-    ));
-    if (!data) return { holding_amount_usdt: "", name: "", error: holdingsFailure([["REST", restError], ["直连", directError && describeDirectError(directError)]]) };
-    const { values, name } = extractHoldings(data);
+    const data = await fetchWithRetries(makePositionUrl(wallet));
+    const pathText = $("positionValuePaths").value || "positionsValueUsd";
+    // 官网口径的「持仓金额」就是 GetPortfolio 的 statistics.positionsValueUsd，
+    // 不是把每笔 /v1/positions 的 valueUsd 相加。
+    let values = valuesFromPathText(data, pathText);
     if (!values.length) {
-      const msg = data && data.error ? String(data.error) : "返回了数据，但没有取到持仓金额(positionsValueUsd)";
-      return { holding_amount_usdt: "", name, error: holdingsFailure([["REST", restError], ["直连", directError && describeDirectError(directError)], ["GraphQL", msg]]) };
+      const v = firstValueFromPaths(data, ["positionsValueUsd", "statistics.positionsValueUsd", "data.statistics.positionsValueUsd", "data.account.statistics.positionsValueUsd"]);
+      if (v !== undefined && v !== null && v !== "") values = [normalizeDecimal(v)];
     }
+    // 用户名（官网展示的 name）。
+    const nameRaw = firstValueFromPaths(data, ["name", "account.name", "data.name", "data.account.name"]);
+    const name = nameRaw !== undefined && nameRaw !== null ? String(nameRaw) : "";
+    if (!values.length) {
+      const err = data && data.error ? String(data.error) : "持仓接口返回了数据，但没有取到持仓金额(positionsValueUsd)";
+      return { holding_amount_usdt: "", name, error: err };
+    }
+    // 正常情况下 positionsValueUsd 是单个数值；decimalSum 兼容路径命中多个值的情况。
     return { holding_amount_usdt: decimalSum(values), name, error: "" };
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     if (state.abort || message === "已停止") throw err;
-    const d = directError || err?.directError;
-    return { holding_amount_usdt: "", name: "", error: holdingsFailure([["REST", restError], ["直连", d && describeDirectError(d)], ["代理", message]]) };
+    return { holding_amount_usdt: "", name: "", error: `持仓接口失败: ${message}` };
   }
 }
 
 // 官网 PNL：返回最新累计值 pnl，以及完整累计时序 points（用于按周切分周 PNL）。
 // 模板未带 full=1 时自动补上；上游不返回 points 时 points 为空数组（周 PNL 显示 —）。
-// 直连模式下 interval 沿用模板里的 interval= 参数（默认 ALL），保持原设置有效。
-function pnlIntervalFromTemplate(url) {
-  try { return new URL(url, location.origin).searchParams.get("interval") || "ALL"; }
-  catch { return "ALL"; }
-}
-
 export async function fetchOfficialPortfolioPnl(wallet) {
   if (!shouldQueryPnl()) return { pnl: "", points: [], error: "" };
-  let directError = null;
   try {
     let url = makePnlUrl(wallet);
     if (!/[?&]full=/.test(url)) url += (url.includes("?") ? "&" : "?") + "full=1";
-    let data;
-    ({ data, directError } = await withGraphqlFallback(
-      () => fetchPnlDirect(graphqlPost, wallet, pnlIntervalFromTemplate(url)),
-      () => fetchWithRetries(url)
-    ));
-    if (!data) return { pnl: "", points: [], error: joinFailure("官网PNL失败", "", directError) };
+    const data = await fetchWithRetries(url);
     const v = firstValueFromPaths(data, ["pnlUsd", "pnl", "data.pnlUsd", "data.pnl", "result.pnlUsd"]);
     if (v === undefined || v === null || v === "") {
       return { pnl: "", points: [], error: data && data.error ? String(data.error) : "未取到官网PNL" };
@@ -407,7 +224,7 @@ export async function fetchOfficialPortfolioPnl(wallet) {
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     if (state.abort || message === "已停止") throw err;
-    return { pnl: "", points: [], error: joinFailure("官网PNL失败", message, directError || err?.directError) };
+    return { pnl: "", points: [], error: `官网PNL失败: ${message}` };
   }
 }
 

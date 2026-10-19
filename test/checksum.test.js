@@ -39,13 +39,3 @@ for (const expected of EIP55_VECTORS) {
     assert.strictEqual(toChecksumAddress(expected.toLowerCase()), expected);
   });
 }
-
-// 浏览器端 ESM 版（js/checksum.js）必须与服务端实现逐字节一致。
-test('js/checksum.js: 与 api/_predict-graphql.js 结果一致', async () => {
-  const esm = await import('../js/checksum.js');
-  assert.strictEqual(esm.keccak256([]), keccak256([]));
-  for (const v of EIP55_VECTORS) {
-    assert.strictEqual(esm.toChecksumAddress(v.toLowerCase()), toChecksumAddress(v.toLowerCase()));
-    assert.strictEqual(esm.toChecksumAddress(v.toLowerCase()), v);
-  }
-});

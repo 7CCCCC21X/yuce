@@ -34,10 +34,7 @@
 ## 部署
 
 直接部署到 Vercel：导入仓库即可，无需构建命令。`vercel.json` 已将
-API 函数 `maxDuration` 设为 15s，并把函数区域固定为新加坡 `sin1`：
-Vercel 默认区域是美国东部 `iad1`，predict.fun 前置的 Cloudflare 对来自
-美国的请求直接返回 403（Ray ID 以 `-IAD` 结尾即是），换到非美国区域才能
-到达上游。改了 `regions` 需要重新部署才生效。
+API 函数 `maxDuration` 设为 15s。
 
 ## 环境变量
 
@@ -50,7 +47,6 @@ Vercel 默认区域是美国东部 `iad1`，predict.fun 前置的 Cloudflare 对
 | `PREDICT_GRAPHQL_URL` | Predict GraphQL endpoint（默认内置） |
 | `PREDICT_GRAPHQL_AUTH` | GraphQL `authorization` 请求头的值 |
 | `PREDICT_GRAPHQL_COOKIE` | GraphQL `cookie` 请求头的值 |
-| `PREDICT_GRAPHQL_USER_AGENT` | 代理请求 GraphQL 时使用的浏览器 UA（默认内置一份 Chrome UA） |
 | `PREDICT_UPSTREAM_TIMEOUT_MS` | 上游请求超时毫秒数（默认 8000） |
 
 ### GraphQL 会话凭证刷新
@@ -64,49 +60,6 @@ Vercel 默认区域是美国东部 `iad1`，predict.fun 前置的 Cloudflare 对
 
 凭证缺失时函数仍会以匿名身份请求（公开数据可能可用），并在日志里
 输出一次性警告。
-
-### Cloudflare 拦截
-
-predict.fun 前置了 Cloudflare。Node 自带 fetch 默认的 UA（`node`）会被其
-机器人规则直接拒绝，返回 HTTP 403 + 「Attention Required!」HTML 页，而不是
-GraphQL 的 JSON。函数默认以浏览器请求头（UA、`sec-ch-ua`、`Sec-Fetch-*` 等）
-发请求以通过这类规则；若 Chrome 版本号过旧又开始被拦，可用
-`PREDICT_GRAPHQL_USER_AGENT` 覆盖 UA 而无需改代码。
-
-被拦截时错误信息会明确写「Cloudflare blocked the request」并附带 CF 错误码
-与 Ray ID（`?debug=1` 可看原始 HTML），与凭证过期的提示区分开。Ray ID 的
-三字母后缀是 Cloudflare 节点，也就是函数的出口位置：`-IAD`、`-SFO` 等美国
-节点被拒，优先怀疑地区封锁，错误信息会直接提示改 `vercel.json` 的
-`regions`。若换到非美国区域仍被拦（按 ASN / TLS 指纹封锁），则靠下面的
-浏览器直连。
-
-### 持仓金额：REST 优先
-
-`api.predict.fun` 是给程序调用的 REST 接口（经 `/api/predict` 代理、需
-`PREDICT_API_KEY`），不受 Cloudflare 人机拦截。持仓金额默认走
-`GET /v1/positions/{wallet}` 累加每个持仓的 `valueUsd`；空列表记为 0。
-REST 失败时才回退到 GraphQL GetPortfolio（官网口径 `positionsValueUsd`，
-含用户名），回退按下面的「GraphQL 请求方式」走。旧配置里仍是
-`/api/portfolio?address={wallet}` 默认值的，加载 / 导入时自动改为 REST；
-自定义模板不动。官网 PNL 只有 GraphQL 有，仍走 GraphQL。
-
-### 浏览器直连 GraphQL
-
-设置面板「GraphQL 请求方式（官网 PNL，及持仓回退）」有三档：
-
-| 档位 | 行为 |
-| --- | --- |
-| 自动（默认） | 先由浏览器直接 POST `graphql.predict.fun/graphql`，失败再走同域代理 |
-| 仅浏览器直连 | 只直连，不碰 Vercel 函数 |
-| 仅同域代理 | 旧行为，全部走 `/api/portfolio`、`/api/portfolio-pnl` |
-
-直连用的是用户自己浏览器的身份：它已经能正常打开 predict.fun，自然也过得了
-Cloudflare，完全不经过 Vercel 出口。查询与翻页逻辑在 `js/predict-graphql.js`，
-整理出的信封与两个 Vercel 函数完全一致，所以字段路径等设置不用改。
-直连被 CORS 拒绝时（浏览器统一抛 `TypeError`，拿不到状态码），本轮余下钱包
-自动改走代理，错误信息会同时写明「直连」与「代理」各自的失败原因。
-`GraphQL Authorization` 为可选项，匿名查不到时填登录后的 `authorization`
-请求头值，只存本机 localStorage。
 
 ## API 约定
 

@@ -7,7 +7,7 @@ import { state, summaryColumns, detailColumns, summaryExportColumns, detailExpor
 import { csvEscape, computePnlCostPerPoint, weeklyPnlFromPoints } from "./format.js";
 import { decimalAdd } from "./decimal.js";
 import { extractWallets, parseWeeks } from "./parse.js";
-import { rateLimiter, resetDirectState, fetchWallet, fetchPositionValue, fetchUsdtBalance, fetchOfficialPortfolioPnl, shouldQueryPnl, shouldQueryShares, shouldQueryHoldings, shouldQueryBalance } from "./api.js";
+import { rateLimiter, fetchWallet, fetchPositionValue, fetchUsdtBalance, fetchOfficialPortfolioPnl, shouldQueryPnl, shouldQueryShares, shouldQueryHoldings, shouldQueryBalance } from "./api.js";
 import { buildRows, buildErrorDetailRow, buildSummaryRows } from "./rows.js";
 import { renderAll, scheduleRender, updateProgressOnly, refreshSummaryRows, getSortedRows, setupTableInteractions } from "./table.js";
 import { setupWeekSelector, setWeekSelection } from "./week.js";
@@ -77,8 +77,6 @@ async function runWalletBatch(wallets, selectedWeeks, { retry = false } = {}) {
   state.running = true;
   state.runController = new AbortController();
   rateLimiter.configure(Number($("maxQps").value || 0));
-  // 每轮重新尝试浏览器直连 GraphQL（上一轮被 CORS 拒绝的记忆只在一轮内有效）。
-  resetDirectState();
   $("startBtn").disabled = true; $("stopBtn").disabled = false;
   let cursor = 0;
   const pnlPromises = [];

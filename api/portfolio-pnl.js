@@ -44,8 +44,6 @@ let resolvedAllInterval = 'MAX';
 
 // 分页保护上限：足够覆盖很长的时序，同时防止上游异常时无限翻页。
 const MAX_PAGES = 25;
-// 每页条数：与官网真实请求一致（pagination: { first: 750 }）。
-const PAGE_SIZE = 750;
 
 function normalizeInterval(value) {
   const interval = String(value == null ? '' : value).trim().toUpperCase();
@@ -113,7 +111,7 @@ async function fetchPnlTimeseries(address, interval) {
       variables: {
         address,
         filter: { interval },
-        pagination: { first: PAGE_SIZE, ...(after ? { after } : {}) },
+        ...(after ? { pagination: { after } } : {}),
       },
       operationName: 'GetAccountPnlTimeseries',
     });
