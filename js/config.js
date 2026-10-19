@@ -35,20 +35,20 @@ function migratePnlInterval(cfg) {
   return false;
 }
 
-// 持仓默认源迁移：GraphQL 代理（/api/portfolio）被 Cloudflare 拦截后，默认改为
-// REST 汇总函数 /api/positions-value。只改写仍是旧默认值（以及早期直连
-// /api/predict … /v1/positions 的单页写法）的配置，用户自定义模板不动。
+// 持仓默认源迁移：GraphQL 代理被 Cloudflare 拦截期间，默认曾短暂改为 REST 汇总
+// /api/positions-value（口径是份额 × 当前价，不是官网数）；GraphQL 经 Railway 中继
+// 恢复后默认改回 /api/portfolio。只改写仍是这些历史默认值的配置，自定义模板不动。
 const LEGACY_POSITION_TEMPLATES = new Set([
-  "/api/portfolio?address={wallet}",
+  "/api/positions-value?address={wallet}",
   "/api/predict?network=mainnet&path=/v1/positions/{wallet}",
 ]);
-const POSITIONS_VALUE_TEMPLATE = "/api/positions-value?address={wallet}";
+const PORTFOLIO_TEMPLATE = "/api/portfolio?address={wallet}";
 
 function migratePositionTemplate(cfg) {
   const values = cfg?.values;
   if (!values || typeof values.positionApiTemplate !== "string") return false;
   if (!LEGACY_POSITION_TEMPLATES.has(values.positionApiTemplate.trim())) return false;
-  values.positionApiTemplate = POSITIONS_VALUE_TEMPLATE;
+  values.positionApiTemplate = PORTFOLIO_TEMPLATE;
   return true;
 }
 
@@ -123,7 +123,7 @@ export function loadConfig() {
     if (migrateApiHost(cfg)) needsRewrite = true;
     // PNL 默认口径迁移：_1D → ALL（全部）。
     if (migratePnlInterval(cfg)) needsRewrite = true;
-    // 持仓默认源：GraphQL 代理 → REST 汇总。
+    // 持仓默认源：历史上的 REST 模板 → GraphQL 代理 /api/portfolio。
     if (migratePositionTemplate(cfg)) needsRewrite = true;
     if (needsRewrite) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {} }
     applyConfig(cfg);

@@ -1,0 +1,8 @@
+[build]
+builder = "RAILPACK"
+
+[deploy]
+startCommand = "python -u server.py"
+restartPolicyType = "ALWAYS"
+numReplicas = 1
+healthcheckPath = "/healthz"
