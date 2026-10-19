@@ -34,3 +34,26 @@ test('detectCloudflareBlock: 没有 cloudflare 迹象的 HTML / 普通 JSON 不�
   // 纯文本里提到 cloudflare 但不是 HTML 页，也不算拦截页
   assert.strictEqual(detectCloudflareBlock(fakeResponse({ server: 'cloudflare' }), 'Forbidden'), null);
 });
+
+test('美国节点（Ray ID -IAD）被拒时，错误信息提示改 Vercel 区域', async () => {
+  const { predictGraphql } = require('../api/_predict-graphql');
+  const html = '<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title></head><body></body></html>';
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ status: 403, ok: false, headers: { get: k => (String(k).toLowerCase() === 'cf-ray' ? 'a4cccfca3fd4ec03-IAD' : null) }, text: async () => html });
+  try {
+    await assert.rejects(
+      () => predictGraphql({ query: '{ x }', variables: {}, operationName: 'X' }),
+      err => /Cloudflare blocked the request/.test(err.message) && /Ray ID a4cccfca3fd4ec03-IAD/.test(err.message) && /US location \(IAD\)/.test(err.message) && /sin1/.test(err.message) && err.status === 502
+    );
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('非美国节点被拒时不提示区域', async () => {
+  const { predictGraphql } = require('../api/_predict-graphql');
+  const html = '<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title></head><body></body></html>';
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ status: 403, ok: false, headers: { get: k => (String(k).toLowerCase() === 'cf-ray' ? 'a4cccfca3fd4ec03-SIN' : null) }, text: async () => html });
+  try {
+    await assert.rejects(() => predictGraphql({ query: '{ x }', variables: {}, operationName: 'X' }), err => /Cloudflare blocked/.test(err.message) && !/US location/.test(err.message));
+  } finally { globalThis.fetch = realFetch; }
+});
