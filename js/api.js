@@ -299,37 +299,79 @@ export async function fetchTradeShares(wallet, startTime, endTime) {
   }
 }
 
+// 持仓金额：默认走 Predict REST /v1/positions（经 /api/predict 代理，api.predict.fun 是
+// 给程序调用的接口，不受 Cloudflare 人机拦截），累加每个持仓的 valueUsd。
+// REST 失败或模板本身指向 GraphQL 代理时，再按「请求方式」走 GraphQL GetPortfolio
+//（官网口径 positionsValueUsd + 用户名）。
+export const REST_POSITIONS_TEMPLATE = "/api/predict?network=mainnet&path=/v1/positions/{wallet}";
+export const DEFAULT_POSITION_VALUE_PATHS = "data[].valueUsd,data[].currentValueUsd,positions[].valueUsd,list[].valueUsd,positionsValueUsd,statistics.positionsValueUsd";
+const GRAPHQL_POSITION_VALUE_PATHS = ["positionsValueUsd", "statistics.positionsValueUsd", "data.statistics.positionsValueUsd", "data.account.statistics.positionsValueUsd"];
+
+export function isGraphqlProxyTemplate(url) {
+  return /\/api\/portfolio(\?|$)/.test(String(url || "")) || /graphql/i.test(String(url || ""));
+}
+
+// 从持仓响应里取出金额列表与用户名。listed=true 表示响应就是一份持仓列表
+//（即使为空）——空列表意味着持仓为 0，而不是「没取到」。
+function extractHoldings(data) {
+  const pathText = ($("positionValuePaths") && $("positionValuePaths").value) || DEFAULT_POSITION_VALUE_PATHS;
+  let values = valuesFromPathText(data, pathText);
+  const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.positions) ? data.positions : Array.isArray(data?.list) ? data.list : null;
+  if (!values.length && list) {
+    values = list.map(x => x?.valueUsd ?? x?.currentValueUsd ?? x?.value_usd ?? x?.current_value_usd).filter(v => v !== undefined && v !== null && v !== "").map(v => normalizeDecimal(v));
+  }
+  if (!values.length) {
+    const v = firstValueFromPaths(data, GRAPHQL_POSITION_VALUE_PATHS);
+    if (v !== undefined && v !== null && v !== "") values = [normalizeDecimal(v)];
+  }
+  const nameRaw = firstValueFromPaths(data, ["name", "account.name", "data.name", "data.account.name"]);
+  const name = nameRaw !== undefined && nameRaw !== null ? String(nameRaw) : "";
+  return { values, name, listed: !!list };
+}
+
+function holdingsFailure(parts) {
+  const text = parts.filter(([, msg]) => msg).map(([label, msg]) => `${label}: ${msg}`).join("；");
+  return `持仓接口失败: ${text || "未知错误"}`;
+}
+
 export async function fetchPositionValue(wallet) {
   if (!shouldQueryHoldings()) return { holding_amount_usdt: "", name: "", error: "" };
+  const template = makePositionUrl(wallet);
+  const restFirst = !isGraphqlProxyTemplate(template);
+  let restError = "";
+  if (restFirst) {
+    try {
+      const data = await fetchWithRetries(template);
+      const { values, name, listed } = extractHoldings(data);
+      if (values.length) return { holding_amount_usdt: decimalSum(values), name, error: "" };
+      if (listed) return { holding_amount_usdt: "0", name, error: "" };
+      restError = data && data.error ? String(data.error) : "返回了数据，但没有取到持仓金额";
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err);
+      if (state.abort || message === "已停止") throw err;
+      restError = message;
+    }
+  }
+  // GraphQL 回退（直连 → 同域代理，按「请求方式」设置）。
   let directError = null;
   try {
     let data;
     ({ data, directError } = await withGraphqlFallback(
       () => fetchPortfolioDirect(graphqlPost, wallet),
-      () => fetchWithRetries(makePositionUrl(wallet))
+      () => fetchWithRetries(restFirst ? `/api/portfolio?address=${wallet}` : template)
     ));
-    if (!data) return { holding_amount_usdt: "", name: "", error: joinFailure("持仓接口失败", "", directError) };
-    const pathText = $("positionValuePaths").value || "positionsValueUsd";
-    // 官网口径的「持仓金额」就是 GetPortfolio 的 statistics.positionsValueUsd，
-    // 不是把每笔 /v1/positions 的 valueUsd 相加。
-    let values = valuesFromPathText(data, pathText);
+    if (!data) return { holding_amount_usdt: "", name: "", error: holdingsFailure([["REST", restError], ["直连", directError && describeDirectError(directError)]]) };
+    const { values, name } = extractHoldings(data);
     if (!values.length) {
-      const v = firstValueFromPaths(data, ["positionsValueUsd", "statistics.positionsValueUsd", "data.statistics.positionsValueUsd", "data.account.statistics.positionsValueUsd"]);
-      if (v !== undefined && v !== null && v !== "") values = [normalizeDecimal(v)];
+      const msg = data && data.error ? String(data.error) : "返回了数据，但没有取到持仓金额(positionsValueUsd)";
+      return { holding_amount_usdt: "", name, error: holdingsFailure([["REST", restError], ["直连", directError && describeDirectError(directError)], ["GraphQL", msg]]) };
     }
-    // 用户名（官网展示的 name）。
-    const nameRaw = firstValueFromPaths(data, ["name", "account.name", "data.name", "data.account.name"]);
-    const name = nameRaw !== undefined && nameRaw !== null ? String(nameRaw) : "";
-    if (!values.length) {
-      const err = data && data.error ? String(data.error) : "持仓接口返回了数据，但没有取到持仓金额(positionsValueUsd)";
-      return { holding_amount_usdt: "", name, error: err };
-    }
-    // 正常情况下 positionsValueUsd 是单个数值；decimalSum 兼容路径命中多个值的情况。
     return { holding_amount_usdt: decimalSum(values), name, error: "" };
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     if (state.abort || message === "已停止") throw err;
-    return { holding_amount_usdt: "", name: "", error: joinFailure("持仓接口失败", message, directError || err?.directError) };
+    const d = directError || err?.directError;
+    return { holding_amount_usdt: "", name: "", error: holdingsFailure([["REST", restError], ["直连", d && describeDirectError(d)], ["代理", message]]) };
   }
 }
 

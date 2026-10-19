@@ -124,3 +124,62 @@ test('直连 PNL：interval 取自模板参数，Authorization 头按设置附�
   assert.strictEqual(r.pnl, '1.25');
   assert.deepStrictEqual(r.points, [{ x: 10, y: 1.25 }]);
 });
+
+// ---------- 持仓：REST 优先，GraphQL 回退 ----------
+
+const REST = { ...BASE, positionApiTemplate: '/api/predict?network=mainnet&path=/v1/positions/{wallet}', positionValuePaths: 'data[].valueUsd,data[].currentValueUsd,positions[].valueUsd,list[].valueUsd,positionsValueUsd,statistics.positionsValueUsd' };
+
+test('REST 优先：累加 valueUsd，成功时不碰 GraphQL', async () => {
+  installDom(REST);
+  const api = await import('../js/api.js');
+  api.resetDirectState();
+  const urls = [];
+  globalThis.fetch = async (url) => { urls.push(String(url)); return jsonResponse({ success: true, data: [{ valueUsd: '1.5' }, { valueUsd: '2.25' }, { valueUsd: null }] }); };
+  const r = await api.fetchPositionValue(WALLET_A);
+  assert.deepStrictEqual(r, { holding_amount_usdt: '3.75', name: '', error: '' });
+  assert.deepStrictEqual(urls, [`/api/predict?network=mainnet&path=/v1/positions/${WALLET_A}`]);
+});
+
+test('REST 优先：空持仓列表 = 0，不算失败', async () => {
+  installDom(REST);
+  const api = await import('../js/api.js');
+  api.resetDirectState();
+  globalThis.fetch = async () => jsonResponse({ success: true, data: [] });
+  const r = await api.fetchPositionValue(WALLET_A);
+  assert.deepStrictEqual(r, { holding_amount_usdt: '0', name: '', error: '' });
+});
+
+test('REST 失败 → 回退 GraphQL 直连，取到官网口径与用户名', async () => {
+  installDom(REST);
+  const api = await import('../js/api.js');
+  api.resetDirectState();
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    if (String(url).startsWith('/api/predict')) return jsonResponse({ success: false, error: 'Missing PREDICT_API_KEY' }, 500);
+    return jsonResponse({ data: { account: { name: 'carol', statistics: { positionsValueUsd: '88' } } } });
+  };
+  const r = await api.fetchPositionValue(WALLET_A);
+  assert.deepStrictEqual(r, { holding_amount_usdt: '88', name: 'carol', error: '' });
+  assert.deepStrictEqual(urls, [`/api/predict?network=mainnet&path=/v1/positions/${WALLET_A}`, 'https://graphql.example/graphql']);
+});
+
+test('REST、直连、代理全部失败 → 错误逐项说明', async () => {
+  installDom(REST);
+  const api = await import('../js/api.js');
+  api.resetDirectState();
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    if (String(url).startsWith('/api/predict')) return jsonResponse({ success: false, error: 'rest down' }, 502);
+    if (String(url).startsWith('https://graphql.example')) throw new TypeError('Failed to fetch');
+    return jsonResponse({ success: false, error: 'Cloudflare blocked the request (HTTP 403; error 1020)' }, 502);
+  };
+  const r = await api.fetchPositionValue(WALLET_A);
+  assert.strictEqual(r.holding_amount_usdt, '');
+  assert.match(r.error, /^持仓接口失败: REST: HTTP 502 .*rest down/);
+  assert.match(r.error, /直连: 浏览器直连被拒绝/);
+  assert.match(r.error, /代理: HTTP 502 .*Cloudflare blocked/);
+  // 回退代理用的是 /api/portfolio，而不是把 REST 模板再请求一遍。
+  assert.strictEqual(urls[2], `/api/portfolio?address=${WALLET_A}`);
+});

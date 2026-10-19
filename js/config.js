@@ -35,6 +35,22 @@ function migratePnlInterval(cfg) {
   return false;
 }
 
+// 持仓默认源迁移：GraphQL 代理（/api/portfolio）被 Cloudflare 拦截后，默认改回
+// Predict REST /v1/positions。只改写仍是旧默认值的配置，用户自定义的模板不动。
+const LEGACY_POSITION_TEMPLATE = "/api/portfolio?address={wallet}";
+const LEGACY_POSITION_VALUE_PATHS = "positionsValueUsd,statistics.positionsValueUsd,data.statistics.positionsValueUsd,data.account.statistics.positionsValueUsd";
+const REST_POSITION_TEMPLATE = "/api/predict?network=mainnet&path=/v1/positions/{wallet}";
+const REST_POSITION_VALUE_PATHS = "data[].valueUsd,data[].currentValueUsd,positions[].valueUsd,list[].valueUsd,positionsValueUsd,statistics.positionsValueUsd";
+
+function migrateHoldingsToRest(cfg) {
+  const values = cfg?.values;
+  if (!values) return false;
+  let changed = false;
+  if (values.positionApiTemplate === LEGACY_POSITION_TEMPLATE) { values.positionApiTemplate = REST_POSITION_TEMPLATE; changed = true; }
+  if (values.positionValuePaths === LEGACY_POSITION_VALUE_PATHS) { values.positionValuePaths = REST_POSITION_VALUE_PATHS; changed = true; }
+  return changed;
+}
+
 // 钱包列表是一次性输入，而不是长期配置。地址非常多时（比如几万个），把整段
 // 文本反复写进 localStorage 会让每次打开页面都要解析、回填、重扫上 MB 的文本，
 // 每次输入又要同步重写整块数据，从而明显卡顿。超过此阈值就不再持久化钱包列表
@@ -107,6 +123,8 @@ export function loadConfig() {
     if (migrateApiHost(cfg)) needsRewrite = true;
     // PNL 默认口径迁移：_1D → ALL（全部）。
     if (migratePnlInterval(cfg)) needsRewrite = true;
+    // 持仓默认源：GraphQL 代理 → REST。
+    if (migrateHoldingsToRest(cfg)) needsRewrite = true;
     if (needsRewrite) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {} }
     applyConfig(cfg);
     return true;
@@ -135,6 +153,7 @@ export async function importConfigFile(file) {
     const cfg = JSON.parse(text);
     migrateApiHost(cfg);
     migratePnlInterval(cfg);
+    migrateHoldingsToRest(cfg);
     applyConfig(cfg);
     saveConfig();
     toast("配置已导入并保存。", "success");

@@ -75,9 +75,19 @@ GraphQL 的 JSON。函数默认以浏览器请求头（UA、`sec-ch-ua`、`Sec-F
 头之后仍被拦（按 IP / ASN / TLS 指纹封锁 Vercel 出口），则换 UA 无效，
 此时靠下面的浏览器直连。
 
-### 浏览器直连 GraphQL（默认）
+### 持仓金额：REST 优先
 
-设置面板「持仓 / 官网 PNL 请求方式」有三档：
+`api.predict.fun` 是给程序调用的 REST 接口（经 `/api/predict` 代理、需
+`PREDICT_API_KEY`），不受 Cloudflare 人机拦截。持仓金额默认走
+`GET /v1/positions/{wallet}` 累加每个持仓的 `valueUsd`；空列表记为 0。
+REST 失败时才回退到 GraphQL GetPortfolio（官网口径 `positionsValueUsd`，
+含用户名），回退按下面的「GraphQL 请求方式」走。旧配置里仍是
+`/api/portfolio?address={wallet}` 默认值的，加载 / 导入时自动改为 REST；
+自定义模板不动。官网 PNL 只有 GraphQL 有，仍走 GraphQL。
+
+### 浏览器直连 GraphQL
+
+设置面板「GraphQL 请求方式（官网 PNL，及持仓回退）」有三档：
 
 | 档位 | 行为 |
 | --- | --- |
