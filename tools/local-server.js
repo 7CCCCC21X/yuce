@@ -11,9 +11,12 @@
 //   PORT=8080 node tools/local-server.js
 //   PREDICT_API_KEY=xxx node tools/local-server.js   # /api/predict（REST 持仓）需要
 //
-// 走代理（Clash 等）：Node 的 fetch 默认不读系统代理。
-//   - Node ≥ 24：NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7897 node tools/local-server.js
-//   - 或把代理软件切到 TUN / 增强模式，让所有进程的流量都走代理。
+// 走代理（Clash 等本地代理的 http 端口），三种写法任选其一：
+//   node tools/local-server.js --proxy http://127.0.0.1:7897
+//   HTTPS_PROXY=http://127.0.0.1:7897 node tools/local-server.js
+//   PROXY=http://127.0.0.1:7897 npm run dev
+// Node 自带的 fetch 不读系统代理，这里用 tools/proxy-fetch.js 自己建 CONNECT 隧道，
+// 不需要 TUN 模式，也不需要升级 Node。
 //
 // 也可以只用它提供 /api/，线上页面的「持仓 API 模板」「官网 PNL API 模板」
 // 填 http://localhost:3000/api/portfolio?address={wallet} 之类；响应带 CORS 头。
@@ -21,6 +24,8 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+
+const { installProxyFetch } = require('./proxy-fetch');
 
 const ROOT = path.resolve(__dirname, '..');
 const API_DIR = path.join(ROOT, 'api');
@@ -113,7 +118,20 @@ function createServer() {
 
 module.exports = { createServer };
 
+function proxyFromArgs(argv) {
+  const i = argv.indexOf('--proxy');
+  if (i !== -1 && argv[i + 1]) return argv[i + 1];
+  const eq = argv.find(a => a.startsWith('--proxy='));
+  if (eq) return eq.slice('--proxy='.length);
+  return process.env.PROXY || process.env.HTTPS_PROXY || process.env.https_proxy || process.env.ALL_PROXY || process.env.all_proxy || '';
+}
+
 if (require.main === module) {
+  const proxyUrl = proxyFromArgs(process.argv.slice(2));
+  if (proxyUrl) {
+    installProxyFetch(proxyUrl);
+    console.log(`对外请求经由代理：${proxyUrl}`);
+  }
   const server = createServer();
   server.listen(PORT, HOST, () => {
     console.log(`yuce 本地服务已启动：http://localhost:${PORT}`);
@@ -121,9 +139,6 @@ if (require.main === module) {
     console.log(`  接口  http://localhost:${PORT}/api/portfolio?address=0x...`);
     console.log(`        http://localhost:${PORT}/api/portfolio-pnl?address=0x...&interval=ALL&full=1`);
     if (!process.env.PREDICT_API_KEY) console.log('  提示  未设置 PREDICT_API_KEY，/api/predict（REST 持仓）会以匿名身份请求。');
-    const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
-    if (proxy && process.env.NODE_USE_ENV_PROXY !== '1') {
-      console.log(`  提示  检测到 HTTPS_PROXY=${proxy}，但 Node 的 fetch 不会自动使用它；Node ≥ 24 请加 NODE_USE_ENV_PROXY=1，或把代理软件切到 TUN 模式。`);
-    }
+    if (!proxyUrl) console.log('  提示  未配置代理，将直接连接 predict.fun；需要走 Clash 等代理时加 --proxy http://127.0.0.1:7897。');
   });
 }

@@ -126,9 +126,13 @@ Cloudflare，完全不经过 Vercel 出口。查询与翻页逻辑在 `js/predic
 ```bash
 npm run dev                                   # http://localhost:3000
 PREDICT_API_KEY=xxx npm run dev               # REST 持仓代理需要 key
-# 走 Clash 等本地代理（Node ≥ 24），或把代理软件切到 TUN 模式：
-NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7897 npm run dev
+# 走 Clash 等本地代理（http 端口），不需要 TUN 模式：
+node tools/local-server.js --proxy http://127.0.0.1:7897
+# 等价写法：HTTPS_PROXY=http://127.0.0.1:7897 npm run dev
 ```
+
+代理支持由 `tools/proxy-fetch.js` 提供：对代理发 CONNECT 建隧道后在隧道上做
+TLS，零依赖，`NO_PROXY` 中的主机不走代理。
 
 页面与 `/api/` 同源，没有 CORS 等浏览器限制。也可以只借用它的 `/api/`：
 线上页面的持仓 / PNL 模板填 `http://localhost:3000/api/portfolio?address={wallet}`
