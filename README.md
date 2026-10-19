@@ -47,6 +47,7 @@ API 函数 `maxDuration` 设为 15s。
 | `PREDICT_GRAPHQL_URL` | Predict GraphQL endpoint（默认内置） |
 | `PREDICT_GRAPHQL_AUTH` | GraphQL `authorization` 请求头的值 |
 | `PREDICT_GRAPHQL_COOKIE` | GraphQL `cookie` 请求头的值 |
+| `PREDICT_GRAPHQL_USER_AGENT` | 代理请求 GraphQL 时使用的浏览器 UA（默认内置一份 Chrome UA） |
 | `PREDICT_UPSTREAM_TIMEOUT_MS` | 上游请求超时毫秒数（默认 8000） |
 
 ### GraphQL 会话凭证刷新
@@ -60,6 +61,19 @@ API 函数 `maxDuration` 设为 15s。
 
 凭证缺失时函数仍会以匿名身份请求（公开数据可能可用），并在日志里
 输出一次性警告。
+
+### Cloudflare 拦截
+
+predict.fun 前置了 Cloudflare。Node 自带 fetch 默认的 UA（`node`）会被其
+机器人规则直接拒绝，返回 HTTP 403 + 「Attention Required!」HTML 页，而不是
+GraphQL 的 JSON。函数默认以浏览器请求头（UA、`sec-ch-ua`、`Sec-Fetch-*` 等）
+发请求以通过这类规则；若 Chrome 版本号过旧又开始被拦，可用
+`PREDICT_GRAPHQL_USER_AGENT` 覆盖 UA 而无需改代码。
+
+被拦截时错误信息会明确写「Cloudflare blocked the request」并附带 CF 错误码
+与 Ray ID（`?debug=1` 可看原始 HTML），与凭证过期的提示区分开。若带上浏览器
+头之后仍被拦（按 IP / ASN 封锁 Vercel 出口），则换 UA 无效，需要换出口
+（自建代理或其它部署平台）。
 
 ## API 约定
 

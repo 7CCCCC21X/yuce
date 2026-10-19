@@ -2,7 +2,7 @@
 // Files/dirs prefixed with "_" are excluded from Vercel routing, so this is a
 // plain module (not an endpoint). Used by /api/portfolio and /api/portfolio-pnl.
 // Optional env vars: PREDICT_GRAPHQL_URL, PREDICT_GRAPHQL_AUTH,
-// PREDICT_GRAPHQL_COOKIE, PREDICT_UPSTREAM_TIMEOUT_MS
+// PREDICT_GRAPHQL_COOKIE, PREDICT_GRAPHQL_USER_AGENT, PREDICT_UPSTREAM_TIMEOUT_MS
 
 const ETH_RE = /^0x[0-9a-fA-F]{40}$/;
 const DEFAULT_GRAPHQL_URL = 'https://graphql.predict.fun/graphql';
@@ -11,6 +11,38 @@ const DEFAULT_GRAPHQL_URL = 'https://graphql.predict.fun/graphql';
 // fail with a clear error instead of eating the whole platform timeout.
 const UPSTREAM_TIMEOUT_MS = Math.max(1000, Number(process.env.PREDICT_UPSTREAM_TIMEOUT_MS || 8000));
 const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
+
+// predict.fun sits behind Cloudflare. Node's fetch identifies itself as
+// "node" (or "undici"), which Cloudflare's bot rules reject outright with an
+// HTML "Attention Required!" page (HTTP 403) before the request ever reaches
+// the GraphQL server. Present a normal browser profile instead; override the
+// UA via PREDICT_GRAPHQL_USER_AGENT when Chrome moves on and the old string
+// itself starts getting flagged.
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
+const BROWSER_HEADERS = {
+  'User-Agent': process.env.PREDICT_GRAPHQL_USER_AGENT || DEFAULT_USER_AGENT,
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+  'sec-ch-ua': '"Google Chrome";v="141", "Chromium";v="141", "Not?A_Brand";v="24"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
+  'Sec-Fetch-Site': 'same-site',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Dest': 'empty',
+};
+
+// Cloudflare block / challenge pages are HTML, never JSON. Recognise them so
+// the operator is told "Cloudflare blocked the proxy" rather than "refresh
+// your cookie", which would send them chasing the wrong fix.
+function detectCloudflareBlock(upstream, text) {
+  const server = String(upstream.headers.get('server') || '').toLowerCase();
+  const looksHtml = /^\s*<!doctype html|^\s*<html/i.test(text);
+  const mentionsCf = /cloudflare|cf-error|cf-ray|attention required|just a moment/i.test(text);
+  if (!looksHtml || !(mentionsCf || server.includes('cloudflare'))) return null;
+  const code = text.match(/cf-error-code[^>]*>\s*(\d+)/i)?.[1] || text.match(/error code[:\s]*(\d{3,4})/i)?.[1] || '';
+  const ray = upstream.headers.get('cf-ray') || text.match(/ray id:?\s*(?:<[^>]*>\s*)*([0-9a-f]{12,})/i)?.[1] || '';
+  const challenge = /just a moment|challenge-platform|cf-chl/i.test(text);
+  return { code, ray, challenge };
+}
 
 // Structured error logging for Vercel logs. Never log credentials.
 function logError(scope, details) {
@@ -105,6 +137,7 @@ async function predictGraphql({ query, variables, operationName }) {
   const graphqlUrl = process.env.PREDICT_GRAPHQL_URL || DEFAULT_GRAPHQL_URL;
 
   const headers = {
+    ...BROWSER_HEADERS,
     Accept: 'application/graphql-response+json, application/json',
     'Content-Type': 'application/json',
     Origin: 'https://predict.fun',
@@ -147,6 +180,20 @@ async function predictGraphql({ query, variables, operationName }) {
 
   const text = await upstream.text();
 
+  // Cloudflare rejected the request before it reached GraphQL (bot rule, WAF,
+  // or a JS challenge). Not a credential problem: say so, with the CF error
+  // code / Ray ID so it can be looked up or reported.
+  const cf = detectCloudflareBlock(upstream, text);
+  if (cf) {
+    const what = cf.challenge ? 'issued a browser challenge' : 'blocked the request';
+    const ids = [cf.code && `error ${cf.code}`, cf.ray && `Ray ID ${cf.ray}`].filter(Boolean).join(', ');
+    const err = new Error(`Cloudflare ${what} before it reached predict.fun GraphQL (HTTP ${upstream.status}${ids ? '; ' + ids : ''}). The proxy's IP or request fingerprint is being rejected — this is not an expired PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE.`);
+    err.status = 502;
+    err.raw = text.slice(0, 800);
+    err.cloudflare = cf;
+    throw err;
+  }
+
   // Session credentials (cookie / auth token) expire; surface that clearly so
   // the operator knows to refresh the env vars instead of guessing.
   if (upstream.status === 401 || upstream.status === 403) {
@@ -183,6 +230,7 @@ async function predictGraphql({ query, variables, operationName }) {
 
 module.exports = {
   ETH_RE,
+  detectCloudflareBlock,
   DEFAULT_GRAPHQL_URL,
   UPSTREAM_TIMEOUT_MS,
   keccak256,
