@@ -51,6 +51,7 @@ const VALUE_IDS = [
   "pointsMultiplier", "feeMultiplier",
   "apiTemplate", "tradesApiTemplate",
   "positionApiTemplate", "positionValuePaths", "pnlApiTemplate",
+  "graphqlMode", "graphqlUrl", "graphqlAuth",
   "usdtAddress", "usdtDecimals", "rpcUrls", "proxyPrefix",
 ];
 const CHECK_IDS = ["onlyCalculated", "liveRender", "queryShares", "queryHoldings", "queryPnl", "queryBalance"];
