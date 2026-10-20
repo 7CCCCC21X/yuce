@@ -185,7 +185,7 @@
 
         <div>
           <label class="checkbox" style="margin-top:24px;"><input id="queryHoldings" type="checkbox" checked />查询持仓金额 + 用户名</label>
-          <div class="help">官网口径：GraphQL GetPortfolio 的 statistics.positionsValueUsd（同时返回用户名 name）。</div>
+          <div class="help">官网口径：GraphQL GetPortfolio 的 statistics.positionsValueUsd（同时返回用户名 name）。Vercel 出口被 Cloudflare 拦截时，服务端经 Railway 中继（relay/）发出，见 README。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="positionApiTemplate">持仓 API 模板</label>

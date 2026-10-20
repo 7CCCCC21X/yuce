@@ -35,6 +35,22 @@ function migratePnlInterval(cfg) {
   return false;
 }
 
+// 持仓模板迁移：2026-10-19 曾短暂把默认改成 REST 汇总 /api/positions-value（已撤销，
+// 接口不存在）。浏览器里仍存着它的，加载 / 导入时改回 /api/portfolio；自定义模板不动。
+const STALE_POSITION_TEMPLATES = new Set([
+  "/api/positions-value?address={wallet}",
+  "/api/predict?network=mainnet&path=/v1/positions/{wallet}",
+]);
+const PORTFOLIO_TEMPLATE = "/api/portfolio?address={wallet}";
+
+function migratePositionTemplate(cfg) {
+  const values = cfg?.values;
+  if (!values || typeof values.positionApiTemplate !== "string") return false;
+  if (!STALE_POSITION_TEMPLATES.has(values.positionApiTemplate.trim())) return false;
+  values.positionApiTemplate = PORTFOLIO_TEMPLATE;
+  return true;
+}
+
 // 钱包列表是一次性输入，而不是长期配置。地址非常多时（比如几万个），把整段
 // 文本反复写进 localStorage 会让每次打开页面都要解析、回填、重扫上 MB 的文本，
 // 每次输入又要同步重写整块数据，从而明显卡顿。超过此阈值就不再持久化钱包列表
@@ -106,6 +122,7 @@ export function loadConfig() {
     if (migrateApiHost(cfg)) needsRewrite = true;
     // PNL 默认口径迁移：_1D → ALL（全部）。
     if (migratePnlInterval(cfg)) needsRewrite = true;
+    if (migratePositionTemplate(cfg)) needsRewrite = true;
     if (needsRewrite) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {} }
     applyConfig(cfg);
     return true;
@@ -134,6 +151,7 @@ export async function importConfigFile(file) {
     const cfg = JSON.parse(text);
     migrateApiHost(cfg);
     migratePnlInterval(cfg);
+    migratePositionTemplate(cfg);
     applyConfig(cfg);
     saveConfig();
     toast("配置已导入并保存。", "success");
