@@ -220,6 +220,15 @@
           <label for="usdtDecimals">USDT decimals</label>
           <input id="usdtDecimals" type="number" min="0" step="1" value="18" />
         </div>
+        <div>
+          <label class="checkbox" style="margin-top:24px;"><input id="queryFlows" type="checkbox" />查询 USDT 充提（BSC）</label>
+          <div class="help">按 Dune 口径：剔除与 Predict 市场合约之间的转账、剔除奖励发放与结算回款的入金、剔除 &lt; 10 U 的转账，汇总总充值 / 总提现 / 净入金。需 Vercel 配置 ETHERSCAN_API_KEY。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="flowsApiTemplate">充提 API 模板</label>
+          <input id="flowsApiTemplate" type="text" value="/api/usdt-flows?address={wallet}" />
+          <div class="help">同域代理 /api/usdt-flows；服务端调 Etherscan V2（chainid=56）的 account.tokentx 取该地址全部 USDT 转账。加 &amp;full=1 可看筛选后的每笔明细。</div>
+        </div>
         <div style="grid-column: 1 / -1;">
           <label for="rpcUrls">BSC RPC URL（每行一个，失败会自动换下一个）</label>
           <textarea id="rpcUrls" style="min-height:70px">https://bsc-dataseed.bnbchain.org/

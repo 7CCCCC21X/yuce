@@ -7,7 +7,7 @@ import { state, summaryColumns, detailColumns, summaryExportColumns, detailExpor
 import { csvEscape, computePnlCostPerPoint, weeklyPnlFromPoints } from "./format.js";
 import { decimalAdd } from "./decimal.js";
 import { extractWallets, parseWeeks } from "./parse.js";
-import { rateLimiter, fetchWallet, fetchPositionValue, fetchUsdtBalance, fetchOfficialPortfolioPnl, shouldQueryPnl, shouldQueryShares, shouldQueryHoldings, shouldQueryBalance } from "./api.js";
+import { rateLimiter, fetchWallet, fetchPositionValue, fetchUsdtBalance, fetchUsdtFlows, fetchOfficialPortfolioPnl, shouldQueryPnl, shouldQueryShares, shouldQueryHoldings, shouldQueryBalance } from "./api.js";
 import { buildRows, buildErrorDetailRow, buildSummaryRows } from "./rows.js";
 import { renderAll, scheduleRender, updateProgressOnly, refreshSummaryRows, getSortedRows, setupTableInteractions } from "./table.js";
 import { setupWeekSelector, setWeekSelection } from "./week.js";
@@ -18,15 +18,17 @@ const EMPTY_PNL = { pnl: "", error: "" };
 // ---------- 查询单个钱包 ----------
 
 async function queryWallet(wallet, selectedWeeks) {
-  const [pointsRes, holdingRes, balanceRes] = await Promise.allSettled([
+  const [pointsRes, holdingRes, balanceRes, flowsRes] = await Promise.allSettled([
     fetchWallet(wallet),
     fetchPositionValue(wallet),
-    fetchUsdtBalance(wallet)
+    fetchUsdtBalance(wallet),
+    fetchUsdtFlows(wallet)
   ]);
   const holding = holdingRes.status === "fulfilled" ? holdingRes.value : { holding_amount_usdt: "", error: holdingRes.reason?.message || "持仓接口失败" };
   const balance = balanceRes.status === "fulfilled" ? balanceRes.value : { available_balance_usdt: "", error: balanceRes.reason?.message || "余额查询失败" };
-  if (pointsRes.status !== "fulfilled") return [buildErrorDetailRow(wallet, pointsRes.reason?.message || "积分接口失败", holding, balance, EMPTY_PNL)];
-  return buildRows(wallet, pointsRes.value, selectedWeeks, holding, balance, EMPTY_PNL);
+  const flows = flowsRes.status === "fulfilled" ? flowsRes.value : { deposit_usdt: "", withdraw_usdt: "", net_usdt: "", error: flowsRes.reason?.message || "充提查询失败" };
+  if (pointsRes.status !== "fulfilled") return [buildErrorDetailRow(wallet, pointsRes.reason?.message || "积分接口失败", holding, balance, EMPTY_PNL, flows)];
+  return buildRows(wallet, pointsRes.value, selectedWeeks, holding, balance, EMPTY_PNL, flows);
 }
 
 // 官网 PNL 单独异步回填，不阻塞主结果渲染。

@@ -48,6 +48,10 @@ API 函数 `maxDuration` 设为 15s。
 | `PREDICT_GRAPHQL_AUTH` | GraphQL `authorization` 请求头的值 |
 | `PREDICT_GRAPHQL_COOKIE` | GraphQL `cookie` 请求头的值 |
 | `PREDICT_UPSTREAM_TIMEOUT_MS` | 上游请求超时毫秒数（默认 8000） |
+| `ETHERSCAN_API_KEY` | Etherscan 免费 API key（V2 统一接口覆盖 BSC，`/api/usdt-flows` 用） |
+| `USDT_FLOWS_MIN_AMOUNT` | 充提统计忽略小于该金额的转账（默认 10） |
+| `USDT_FLOWS_EXTRA_MARKET_CONTRACTS` | 追加要剔除的 Predict 市场合约地址，逗号分隔 |
+| `USDT_FLOWS_EXTRA_EXCLUDE_INFLOW` | 追加要剔除入金来源的地址，逗号分隔 |
 
 ### GraphQL 会话凭证刷新
 
@@ -60,6 +64,24 @@ API 函数 `maxDuration` 设为 15s。
 
 凭证缺失时函数仍会以匿名身份请求（公开数据可能可用），并在日志里
 输出一次性警告。
+
+## USDT 充提统计（/api/usdt-flows）
+
+把原先在 Dune 上跑的「充值 / 提现」SQL 搬到了服务端，数据源改为 Etherscan V2
+统一接口（`chainid=56` 即 BSC）的 `account.tokentx`，按地址取全部 USDT 转账
+后在函数里按同样的规则筛选与汇总：
+
+- `to` 是钱包 → 充值，否则 → 提现；对手方是另一端地址；
+- 对手方属于 Predict 市场合约（`api/usdt-flows.js` 里的 `MARKET_CONTRACTS`，
+  27 个）的一律剔除；
+- 对手方是 RewardDistributor / RedeemSettlement 的「充值」剔除；
+- 金额 < 10 USDT 的剔除（`USDT_FLOWS_MIN_AMOUNT` 可调）。
+
+返回 `deposit_usdt` / `withdraw_usdt` / `net_usdt`，页面对应「总充值 / 总提现 /
+净入金」三列（设置里「查询 USDT 充提」默认关闭，勾上即查）。`?full=1`
+返回筛选后的每笔明细（时间倒序，最多 2000 条）。单地址超过 1 万笔转账时按
+区块窗口继续翻页，最多 10 万笔。Etherscan 免费档每秒 5 次请求，页面的
+「每秒最大请求数」会一并限制它。
 
 ## API 约定
 

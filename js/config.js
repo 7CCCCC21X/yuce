@@ -51,9 +51,9 @@ const VALUE_IDS = [
   "pointsMultiplier", "feeMultiplier",
   "apiTemplate", "tradesApiTemplate",
   "positionApiTemplate", "positionValuePaths", "pnlApiTemplate",
-  "usdtAddress", "usdtDecimals", "rpcUrls", "proxyPrefix",
+  "usdtAddress", "usdtDecimals", "rpcUrls", "proxyPrefix", "flowsApiTemplate",
 ];
-const CHECK_IDS = ["onlyCalculated", "liveRender", "queryShares", "queryHoldings", "queryPnl", "queryBalance"];
+const CHECK_IDS = ["onlyCalculated", "liveRender", "queryShares", "queryHoldings", "queryPnl", "queryBalance", "queryFlows"];
 
 export function snapshotConfig() {
   const cfg = { values: {}, checks: {} };

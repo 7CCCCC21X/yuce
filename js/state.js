@@ -41,6 +41,7 @@ export const numericKeys = new Set([
   "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt",
   "paid_fee_usdt", "cost_usdt", "all_fee_usdt", "points", "referral_points",
   "cost_per_point", "pnl_cost_per_point", "week_pnl", "week_pnl_cost_per_point", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt", "pnl",
+  "deposit_usdt", "withdraw_usdt", "net_deposit_usdt",
   "total_volume_shares", "shares_per_point",
   "total_volume_per_point", "paid_volume_per_point", "free_volume_per_point",
   "week_start_ts", "week_end_ts"
@@ -52,7 +53,8 @@ export const PNL_CPP_KEYS = new Set(["pnl_cost_per_point", "week_pnl_cost_per_po
 export const VPP_KEYS = new Set(["total_volume_per_point", "paid_volume_per_point", "free_volume_per_point", "shares_per_point"]);
 export const MONEY_KEYS = new Set([
   "paid_volume_usdt", "free_volume_usdt", "total_volume_usdt", "total_volume_shares",
-  "cost_usdt", "paid_fee_usdt", "all_fee_usdt", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt"
+  "cost_usdt", "paid_fee_usdt", "all_fee_usdt", "holding_amount_usdt", "available_balance_usdt", "net_asset_usdt",
+  "deposit_usdt", "withdraw_usdt", "net_deposit_usdt"
 ]);
 export const PNL_KEYS = new Set(["pnl", "week_pnl"]);
 export const TWO_DECIMAL_KEYS = new Set(["points", "total_points"]);
@@ -70,6 +72,9 @@ export const detailColumns = [
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],
   ["net_asset_usdt", "净资产"],
+  ["deposit_usdt", "总充值"],
+  ["withdraw_usdt", "总提现"],
+  ["net_deposit_usdt", "净入金"],
   ["pnl", "官网PNL"],
   ["week_pnl", "本周PNL"],
   ["trade_count", "交易次数"],
@@ -102,6 +107,9 @@ export const summaryColumns = [
   ["holding_amount_usdt", "持仓金额"],
   ["available_balance_usdt", "可用余额"],
   ["net_asset_usdt", "净资产"],
+  ["deposit_usdt", "总充值"],
+  ["withdraw_usdt", "总提现"],
+  ["net_deposit_usdt", "净入金"],
   ["pnl", "官网PNL"],
   ["week_pnl", "选中周PNL"],
   ["trade_count", "交易次数"],
