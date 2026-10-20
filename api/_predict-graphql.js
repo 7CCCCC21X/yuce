@@ -2,7 +2,8 @@
 // Files/dirs prefixed with "_" are excluded from Vercel routing, so this is a
 // plain module (not an endpoint). Used by /api/portfolio and /api/portfolio-pnl.
 // Optional env vars: PREDICT_GRAPHQL_URL, PREDICT_GRAPHQL_AUTH,
-// PREDICT_GRAPHQL_COOKIE, PREDICT_UPSTREAM_TIMEOUT_MS
+// PREDICT_GRAPHQL_COOKIE, PREDICT_UPSTREAM_TIMEOUT_MS,
+// PREDICT_GRAPHQL_RELAY_URL / PREDICT_GRAPHQL_RELAY_TOKEN（经 relay/ 中继发出）
 
 const ETH_RE = /^0x[0-9a-fA-F]{40}$/;
 const DEFAULT_GRAPHQL_URL = 'https://graphql.predict.fun/graphql';
@@ -101,8 +102,19 @@ let warnedAnonymous = false;
 // POSTs a GraphQL operation to Predict.fun and returns the parsed JSON.
 // Retries once on retryable upstream status / network error.
 // Throws an Error with `.status` and `.raw` on transport / GraphQL errors.
+// 中继：Cloudflare 拦下从 Vercel 出口直发 graphql.predict.fun 的请求，但同样的
+// 请求从 Railway（relay/server.py，Python httpx）发出能通过。配置了
+// PREDICT_GRAPHQL_RELAY_URL 时，这里把 POST 的目标换成中继的 /graphql，
+// 请求体与响应体均原样透传，上面的所有业务逻辑不受影响。
+function relayTarget() {
+  const base = String(process.env.PREDICT_GRAPHQL_RELAY_URL || '').trim().replace(/\/+$/, '');
+  if (!base) return null;
+  return { url: `${base}/graphql`, token: String(process.env.PREDICT_GRAPHQL_RELAY_TOKEN || '').trim() };
+}
+
 async function predictGraphql({ query, variables, operationName }) {
-  const graphqlUrl = process.env.PREDICT_GRAPHQL_URL || DEFAULT_GRAPHQL_URL;
+  const relay = relayTarget();
+  const graphqlUrl = relay ? relay.url : (process.env.PREDICT_GRAPHQL_URL || DEFAULT_GRAPHQL_URL);
 
   const headers = {
     Accept: 'application/graphql-response+json, application/json',
@@ -117,8 +129,9 @@ async function predictGraphql({ query, variables, operationName }) {
   // GraphQL request headers) and set them as Vercel env vars.
   if (process.env.PREDICT_GRAPHQL_AUTH) headers.Authorization = process.env.PREDICT_GRAPHQL_AUTH;
   if (process.env.PREDICT_GRAPHQL_COOKIE) headers.Cookie = process.env.PREDICT_GRAPHQL_COOKIE;
+  if (relay && relay.token) headers['x-relay-token'] = relay.token;
 
-  if (!process.env.PREDICT_GRAPHQL_AUTH && !process.env.PREDICT_GRAPHQL_COOKIE && !warnedAnonymous) {
+  if (!relay && !process.env.PREDICT_GRAPHQL_AUTH && !process.env.PREDICT_GRAPHQL_COOKIE && !warnedAnonymous) {
     warnedAnonymous = true;
     console.warn('[predict-graphql] PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE not configured; requesting upstream anonymously. Account-scoped fields may be unavailable.');
   }
@@ -146,6 +159,17 @@ async function predictGraphql({ query, variables, operationName }) {
   }
 
   const text = await upstream.text();
+
+  // 中继自身的错误（密钥不对、中继连不上上游……）带 x-relay-error 头，
+  // 与"上游拒绝"区分开，免得误导去刷新 cookie。
+  if (relay && upstream.headers.get('x-relay-error')) {
+    let message = `relay HTTP ${upstream.status}`;
+    try { message = JSON.parse(text)?.error || message; } catch { /* keep default */ }
+    const err = new Error(`GraphQL relay (${relay.url}) failed: ${message}`);
+    err.status = 502;
+    err.raw = text.slice(0, 800);
+    throw err;
+  }
 
   // Session credentials (cookie / auth token) expire; surface that clearly so
   // the operator knows to refresh the env vars instead of guessing.

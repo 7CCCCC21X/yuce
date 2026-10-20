@@ -47,6 +47,8 @@ API 函数 `maxDuration` 设为 15s。
 | `PREDICT_GRAPHQL_URL` | Predict GraphQL endpoint（默认内置） |
 | `PREDICT_GRAPHQL_AUTH` | GraphQL `authorization` 请求头的值 |
 | `PREDICT_GRAPHQL_COOKIE` | GraphQL `cookie` 请求头的值 |
+| `PREDICT_GRAPHQL_RELAY_URL` | GraphQL 中继地址（Railway 上的 `relay/`，见下）；设置后 GraphQL 请求改经中继发出 |
+| `PREDICT_GRAPHQL_RELAY_TOKEN` | 中继共享密钥，与中继的 `RELAY_TOKEN` 一致 |
 | `PREDICT_UPSTREAM_TIMEOUT_MS` | 上游请求超时毫秒数（默认 8000） |
 
 ### GraphQL 会话凭证刷新
@@ -60,6 +62,33 @@ API 函数 `maxDuration` 设为 15s。
 
 凭证缺失时函数仍会以匿名身份请求（公开数据可能可用），并在日志里
 输出一次性警告。
+
+### GraphQL 中继（relay/）：绕开 Cloudflare 对 Vercel 出口的拦截
+
+2026-10 起，predict.fun 前置的 Cloudflare 把从 Vercel 出口发往
+`graphql.predict.fun` 的请求整段拦下（403 + 「Attention Required!」页），
+换区域、换请求头都无效；`/api/portfolio`（持仓金额 + 用户名）与
+`/api/portfolio-pnl`（官网 PNL）因此失效。而同样的请求从 Railway 用 Python
+httpx 发出能正常通过（`predict_whale_bot` 就是这样查用户名的）。
+
+`relay/server.py` 是一个零业务逻辑的中继：`POST /graphql` 把请求体原样转给
+`graphql.predict.fun`，把上游状态码与响应体原样返回（另带
+`x-upstream-cf-ray` 等诊断头）。Vercel 函数配置了
+`PREDICT_GRAPHQL_RELAY_URL` 后，只是把 POST 目标换成中继，其余逻辑不变。
+
+部署步骤：
+
+1. Railway → New Service → GitHub Repo 选本仓库；Settings → Root Directory
+   填 `relay`；Variables 加 `RELAY_TOKEN=<随机长字符串>`；Networking 生成域名。
+   启动后访问 `https://<域名>/healthz` 应返回 `{"ok":true,...}`。
+2. Vercel → 项目 Environment Variables 加 `PREDICT_GRAPHQL_RELAY_URL=https://<域名>`
+   与 `PREDICT_GRAPHQL_RELAY_TOKEN=<同一个密钥>`，然后 Redeploy。
+3. 验证：`/api/portfolio?address=0x…` 返回 `success: true` 与 `name`。
+
+中继自身的错误（密钥不对、连不上上游）会带 `x-relay-error` 头，Vercel 端
+报错写明「GraphQL relay … failed」；上游的 403 仍原样透传。
+`relay/test_server.py` 用本地假上游覆盖了转发、鉴权与透传；本地跑中继：
+`cd relay && pip install -r requirements.txt && RELAY_TOKEN=x python server.py`。
 
 ## API 约定
 
