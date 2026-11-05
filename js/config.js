@@ -69,7 +69,7 @@ const VALUE_IDS = [
   "positionApiTemplate", "positionValuePaths", "pnlApiTemplate",
   "usdtAddress", "usdtDecimals", "rpcUrls", "proxyPrefix",
 ];
-const CHECK_IDS = ["onlyCalculated", "liveRender", "queryShares", "queryHoldings", "queryPnl", "queryBalance"];
+const CHECK_IDS = ["onlyCalculated", "liveRender", "queryShares", "queryHoldings", "queryPnl", "queryBalance", "useImported", "importedFallback"];
 
 export function snapshotConfig() {
   const cfg = { values: {}, checks: {} };

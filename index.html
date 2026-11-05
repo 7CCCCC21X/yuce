@@ -231,6 +231,20 @@ https://bsc.drpc.org</textarea>
           <label for="proxyPrefix">代理前缀（可选）</label>
           <input id="proxyPrefix" type="text" placeholder="留空即直连。如有 CORS 问题填代理前缀，例如 https://你的域名/proxy?url=" />
         </div>
+        <div style="grid-column: 1 / -1;">
+          <label>导入官网数据（predict.fun 页面脚本导出）</label>
+          <div class="help">Predict 的 GraphQL 被 Cloudflare 拦住时的替代路径：在 predict.fun 页面的 Console 里运行脚本，批量查出用户名 / 持仓金额 / 官网 PNL 并下载 JSON，再在这里导入。导入后查询这些钱包时直接用导入数据，不再请求 /api/portfolio 与 /api/portfolio-pnl。</div>
+          <div class="config-actions" style="margin-top:6px;">
+            <button id="copyExportScriptBtn" type="button" class="secondary">复制脚本</button>
+            <button id="openExportScriptBtn" type="button" class="secondary">查看脚本</button>
+            <button id="importPortfolioBtn" type="button" class="secondary">导入导出文件</button>
+            <input id="importPortfolioFile" type="file" accept="application/json,.json" hidden />
+            <button id="clearImportedBtn" type="button" class="bad">清除导入</button>
+            <span id="importedStatus" class="help">未导入。</span>
+          </div>
+          <label class="checkbox" style="margin-top:8px;"><input id="useImported" type="checkbox" checked />优先使用导入数据</label>
+          <label class="checkbox" style="margin-top:4px;margin-left:16px;"><input id="importedFallback" type="checkbox" checked />导入数据里没有的钱包仍走接口</label>
+        </div>
         <div style="grid-column: 1 / -1;" class="config-actions">
           <button id="exportConfigBtn" type="button" class="secondary">导出配置</button>
           <button id="importConfigBtn" type="button" class="secondary">导入配置</button>

@@ -12,6 +12,7 @@ import { buildRows, buildErrorDetailRow, buildSummaryRows } from "./rows.js";
 import { renderAll, scheduleRender, updateProgressOnly, refreshSummaryRows, getSortedRows, setupTableInteractions } from "./table.js";
 import { setupWeekSelector, setWeekSelection } from "./week.js";
 import { loadConfig, saveConfig, attachConfigPersistence, exportConfig, importConfigFile, resetConfig } from "./config.js";
+import { loadImportedFile, restoreImported, clearImported, describeImported } from "./imported.js";
 
 const EMPTY_PNL = { pnl: "", error: "" };
 
@@ -279,6 +280,27 @@ function setupListeners() {
   $("copyFilteredWalletsBtn").addEventListener("click", copyFilteredWallets);
 
   // 配置导入 / 导出 / 恢复默认。
+  // 官网数据导入（predict.fun 页面脚本导出的 JSON）。
+  const refreshImportedStatus = () => { const el = $("importedStatus"); if (el) el.textContent = describeImported(); };
+  restoreImported(); refreshImportedStatus();
+  $("importPortfolioBtn")?.addEventListener("click", () => $("importPortfolioFile").click());
+  $("importPortfolioFile")?.addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try { const n = await loadImportedFile(file); refreshImportedStatus(); toast(`已导入 ${n} 个钱包的官网数据。`, "success"); }
+    catch (err) { toast(`导入失败：${err && err.message ? err.message : err}`, "error"); }
+  });
+  $("openExportScriptBtn")?.addEventListener("click", () => window.open("scripts/predict-console-export.js", "_blank", "noopener"));
+  $("clearImportedBtn")?.addEventListener("click", () => { clearImported(); refreshImportedStatus(); toast("已清除导入的官网数据。", "info"); });
+  $("copyExportScriptBtn")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch("scripts/predict-console-export.js", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const ok = await copyText(await res.text());
+      toast(ok ? "脚本已复制。到 predict.fun 页面按 F12 → Console 粘贴回车。" : "复制失败，请点「查看脚本」手动复制。", ok ? "success" : "error");
+    } catch (err) { toast(`读取脚本失败：${err && err.message ? err.message : err}`, "error"); }
+  });
   $("exportConfigBtn")?.addEventListener("click", exportConfig);
   $("importConfigBtn")?.addEventListener("click", () => $("importConfigFile").click());
   $("importConfigFile")?.addEventListener("change", async (e) => {

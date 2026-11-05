@@ -4,6 +4,7 @@
 import { $, sleep } from "./dom.js";
 import { state } from "./state.js";
 import { normalizeDecimal, decimalSum, formatScaled } from "./decimal.js";
+import { importedFor, importedMissMessage } from "./imported.js";
 
 export const rateLimiter = {
   times: [],
@@ -178,6 +179,14 @@ export async function fetchTradeShares(wallet, startTime, endTime) {
 
 export async function fetchPositionValue(wallet) {
   if (!shouldQueryHoldings()) return { holding_amount_usdt: "", name: "", error: "" };
+  // 导入的官网数据优先（predict.fun 页面脚本导出），不请求接口。
+  const imported = importedFor(wallet);
+  if (imported) {
+    if (imported.error && imported.positionsValueUsd === "" && !imported.name) return { holding_amount_usdt: "", name: "", error: `导入数据: ${imported.error}` };
+    return { holding_amount_usdt: imported.positionsValueUsd, name: imported.name, error: "" };
+  }
+  const miss = importedMissMessage(wallet);
+  if (miss) return { holding_amount_usdt: "", name: "", error: miss };
   try {
     const data = await fetchWithRetries(makePositionUrl(wallet));
     const pathText = $("positionValuePaths").value || "positionsValueUsd";
@@ -208,6 +217,13 @@ export async function fetchPositionValue(wallet) {
 // 模板未带 full=1 时自动补上；上游不返回 points 时 points 为空数组（周 PNL 显示 —）。
 export async function fetchOfficialPortfolioPnl(wallet) {
   if (!shouldQueryPnl()) return { pnl: "", points: [], error: "" };
+  const imported = importedFor(wallet);
+  if (imported) {
+    if (imported.pnlUsd === "") return { pnl: "", points: [], error: imported.error ? `导入数据: ${imported.error}` : "导入数据里没有官网PNL" };
+    return { pnl: imported.pnlUsd, points: imported.pnl_points || [], error: "" };
+  }
+  const miss = importedMissMessage(wallet);
+  if (miss) return { pnl: "", points: [], error: miss };
   try {
     let url = makePnlUrl(wallet);
     if (!/[?&]full=/.test(url)) url += (url.includes("?") ? "&" : "?") + "full=1";
