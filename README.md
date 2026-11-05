@@ -90,6 +90,28 @@ httpx 发出能正常通过（`predict_whale_bot` 就是这样查用户名的）
 `relay/test_server.py` 用本地假上游覆盖了转发、鉴权与透传；本地跑中继：
 `cd relay && pip install -r requirements.txt && RELAY_TOKEN=x python server.py`。
 
+### 浏览器中继（relay-browser/）：纯 HTTP 中继也被拦时的方案
+
+predict.fun 的 GraphQL 不需要登录就能查，Cloudflare 只认「真浏览器」。
+`relay-browser/browser_server.py` 用 Playwright 在服务器上跑一个 Chromium，
+打开 predict.fun 页面，收到请求时在页面环境里 `fetch` 上游（与用户在页面
+Console 里跑 `scripts/predict-console-export.js` 完全同一条路），对外接口与
+`relay/` 完全一致（`POST /graphql`、`GET /healthz`、`RELAY_TOKEN`、
+`x-relay-error`），Vercel 侧切换只改 `PREDICT_GRAPHQL_RELAY_URL`。
+
+细节：普通 Chrome UA（无头默认 UA 含 HeadlessChrome）、`navigator.webdriver`
+抹掉、`--disable-blink-features=AutomationControlled`；打开页面后若标题是
+「Just a moment…」等挑战页则等待其自行跳转；页面定期重开
+（`RELAY_RELOAD_SEC`，默认 30 分钟）；页面内 fetch 抛错或页面崩溃时重开再试
+一次；`RELAY_CONCURRENCY` 控制并发（默认 4）。`/healthz` 返回 `ready`、
+`page_title`、请求 / 失败计数与最近错误。
+
+部署到 Railway：New Service → GitHub Repo 选本仓库 → Root Directory 填
+`relay-browser`（目录内有 Dockerfile，基于 Playwright 官方镜像，Railway 自动用
+它构建）→ Variables 加 `RELAY_TOKEN` → 生成域名 → `/healthz` 看 `ready: true`
+与 `page_title`。镜像约 1.5GB、运行内存约 400MB 起。测试：
+`cd relay-browser && pip install -r requirements.txt && python -m playwright install chromium && python -m unittest test_browser_server.py`。
+
 ## API 约定
 
 - 响应统一为 `{ success: true, ... }` / `{ success: false, error: "..." }`。
