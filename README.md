@@ -112,6 +112,24 @@ httpx 发出能正常通过（`predict_whale_bot` 就是这样查用户名的）
 区块窗口继续翻页，最多 10 万笔。Etherscan 免费档每秒 5 次请求，页面的
 「每秒最大请求数」会一并限制它。
 
+## 官网数据导出 / 导入（GraphQL 被拦时的替代路径）
+
+predict.fun 的 GraphQL 只放行来自 predict.fun 自己的跨域请求，但用户的浏览器
+能通过 Cloudflare。`scripts/predict-console-export.js` 就是利用这一点：登录
+predict.fun 后在 DevTools Console 粘贴运行，页面右下角出现面板，粘贴钱包
+地址点「开始」，脚本用与 `/api/portfolio`、`/api/portfolio-pnl` 完全相同的
+查询（GetPortfolio + GetAccountPnlTimeseries，interval MAX，分页 750）批量
+查询并下载 `yuce-portfolio-export-<时间>.json`（也可再导出 CSV）。
+
+yuce 页面设置里「导入官网数据」选择该文件后：查询时持仓金额、用户名、官网
+PNL（含周 PNL 用的时序）优先取导入数据，不请求接口；「导入数据里没有的钱包
+仍走接口」控制缺失时是否回退。导入内容在 3MB 以内会存到 localStorage，刷新
+不丢；「清除导入」删除。「复制脚本」按钮直接把脚本复制到剪贴板。
+
+导出文件格式：`{ format: "yuce-portfolio-export", version: 1, exported_at,
+wallets: { "<小写地址>": { address, name, positionsValueUsd, pnlUsd, volumeUsd,
+totalPoints, rank, pnl_interval, pnl_points: [{x, y}], error } } }`。
+
 ## API 约定
 
 - 响应统一为 `{ success: true, ... }` / `{ success: false, error: "..." }`。
