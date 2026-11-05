@@ -138,7 +138,19 @@ export function makeTradesUrl(wallet, startTime, endTime) {
   return template.replaceAll("{wallet}", wallet).replaceAll("{start_time}", String(startTime)).replaceAll("{end_time}", String(endTime));
 }
 
+// 持仓金额来源：graphql = /api/portfolio（官网口径 + 用户名）；rest = /api/positions-value
+// （官方 REST 逐仓估值，不依赖 GraphQL，无用户名）；custom = 用下面的模板。
+export const REST_POSITIONS_VALUE_TEMPLATE = "/api/positions-value?address={wallet}";
+export const GRAPHQL_PORTFOLIO_TEMPLATE = "/api/portfolio?address={wallet}";
+export function holdingsSource() {
+  const v = $("holdingsSource") ? String($("holdingsSource").value || "").trim() : "";
+  return v === "rest" || v === "custom" ? v : "graphql";
+}
+
 export function makePositionUrl(wallet) {
+  const source = holdingsSource();
+  if (source === "rest") return REST_POSITIONS_VALUE_TEMPLATE.replaceAll("{wallet}", wallet);
+  if (source === "graphql") return GRAPHQL_PORTFOLIO_TEMPLATE.replaceAll("{wallet}", wallet);
   const template = $("positionApiTemplate").value.trim();
   if (!template) throw new Error("持仓 API 模板不能为空");
   if (!template.includes("{wallet}") && !template.includes("{address}")) throw new Error("持仓 API 模板必须包含 {wallet} 或 {address}");

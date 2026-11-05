@@ -66,7 +66,7 @@ const VALUE_IDS = [
   "concurrency", "retries", "maxQps", "timeoutMs",
   "pointsMultiplier", "feeMultiplier",
   "apiTemplate", "tradesApiTemplate",
-  "positionApiTemplate", "positionValuePaths", "pnlApiTemplate",
+  "holdingsSource", "positionApiTemplate", "positionValuePaths", "pnlApiTemplate",
   "usdtAddress", "usdtDecimals", "rpcUrls", "proxyPrefix", "flowsApiTemplate",
 ];
 const CHECK_IDS = ["onlyCalculated", "liveRender", "queryShares", "queryHoldings", "queryPnl", "queryBalance", "queryFlows", "useImported", "importedFallback"];

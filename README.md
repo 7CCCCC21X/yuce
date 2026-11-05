@@ -130,6 +130,21 @@ PNL（含周 PNL 用的时序）优先取导入数据，不请求接口；「导
 wallets: { "<小写地址>": { address, name, positionsValueUsd, pnlUsd, volumeUsd,
 totalPoints, rank, pnl_interval, pnl_points: [{x, y}], error } } }`。
 
+## 推算盈亏（不依赖 GraphQL）
+
+设置里「持仓金额来源」选「官方 REST 估值」后，持仓走 `/api/positions-value`
+（官方 REST `/v1/positions/{address}` 翻完所有分页，按份额 × 当前最优买价逐仓
+估值求和，`?debug=1` 可看逐仓明细），余额走链上 `balanceOf`，再勾上
+「查询 USDT 充提」，表格里的「推算盈亏」列即为：
+
+```
+推算盈亏 = 持仓金额 + 可用余额 − 净入金（总充值 − 总提现）
+```
+
+三项缺一则留空。它与官网 PNL 的差异来自奖励发放、未领取的结算回款以及
+REST 估值与官网口径的差别，用于排名、筛选足够。导入的官网数据仍优先于
+「持仓金额来源」。
+
 ## API 约定
 
 - 响应统一为 `{ success: true, ... }` / `{ success: false, error: "..." }`。

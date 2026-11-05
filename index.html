@@ -188,9 +188,18 @@
           <div class="help">官网口径：GraphQL GetPortfolio 的 statistics.positionsValueUsd（同时返回用户名 name）。Vercel 出口被 Cloudflare 拦截时，服务端经 Railway 中继（relay/）发出，见 README。</div>
         </div>
         <div style="grid-column: 1 / -1;">
-          <label for="positionApiTemplate">持仓 API 模板</label>
+          <label for="holdingsSource">持仓金额来源</label>
+          <select id="holdingsSource">
+            <option value="graphql" selected>官网 GraphQL（/api/portfolio，官网口径 + 用户名）</option>
+            <option value="rest">官方 REST 估值（/api/positions-value，不依赖 GraphQL，无用户名）</option>
+            <option value="custom">自定义模板（用下面的持仓 API 模板）</option>
+          </select>
+          <div class="help">GraphQL 被 Cloudflare 拦住时选「官方 REST 估值」：服务端用 PREDICT_API_KEY 调 /v1/positions 翻完所有分页，按份额 × 当前买价逐仓估值求和，口径与官网略有差异。配合链上余额与 USDT 充提，可得「推算盈亏 = 持仓 + 余额 − 净入金」。导入的官网数据仍优先于这里的来源。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="positionApiTemplate">持仓 API 模板（仅「自定义模板」时生效）</label>
           <input id="positionApiTemplate" type="text" value="/api/portfolio?address={wallet}" />
-          <div class="help">默认走同域代理 /api/portfolio；服务端转发到 Predict.fun GraphQL GetPortfolio，返回官网展示的持仓金额(positionsValueUsd)和用户名(name)。</div>
+          <div class="help">/api/portfolio 转发到 Predict.fun GraphQL GetPortfolio，返回官网展示的持仓金额(positionsValueUsd)和用户名(name)。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="positionValuePaths">持仓金额字段路径</label>
