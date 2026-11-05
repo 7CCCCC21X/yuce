@@ -4,6 +4,7 @@
 import { $, sleep } from "./dom.js";
 import { state } from "./state.js";
 import { normalizeDecimal, decimalSum, formatScaled } from "./decimal.js";
+import { importedFor, importedMissMessage } from "./imported.js";
 
 export const rateLimiter = {
   times: [],
@@ -137,7 +138,19 @@ export function makeTradesUrl(wallet, startTime, endTime) {
   return template.replaceAll("{wallet}", wallet).replaceAll("{start_time}", String(startTime)).replaceAll("{end_time}", String(endTime));
 }
 
+// 持仓金额来源：graphql = /api/portfolio（官网口径 + 用户名）；rest = /api/positions-value
+// （官方 REST 逐仓估值，不依赖 GraphQL，无用户名）；custom = 用下面的模板。
+export const REST_POSITIONS_VALUE_TEMPLATE = "/api/positions-value?address={wallet}";
+export const GRAPHQL_PORTFOLIO_TEMPLATE = "/api/portfolio?address={wallet}";
+export function holdingsSource() {
+  const v = $("holdingsSource") ? String($("holdingsSource").value || "").trim() : "";
+  return v === "rest" || v === "custom" ? v : "graphql";
+}
+
 export function makePositionUrl(wallet) {
+  const source = holdingsSource();
+  if (source === "rest") return REST_POSITIONS_VALUE_TEMPLATE.replaceAll("{wallet}", wallet);
+  if (source === "graphql") return GRAPHQL_PORTFOLIO_TEMPLATE.replaceAll("{wallet}", wallet);
   const template = $("positionApiTemplate").value.trim();
   if (!template) throw new Error("持仓 API 模板不能为空");
   if (!template.includes("{wallet}") && !template.includes("{address}")) throw new Error("持仓 API 模板必须包含 {wallet} 或 {address}");
@@ -157,6 +170,13 @@ export function shouldQueryShares() { const el = $("queryShares"); return !el ||
 export function shouldQueryHoldings() { const el = $("queryHoldings"); return !el || el.checked; }
 export function shouldQueryBalance() { const el = $("queryBalance"); return !el || el.checked; }
 export function shouldQueryPnl() { const el = $("queryPnl"); return !el || el.checked; }
+export function shouldQueryFlows() { const el = $("queryFlows"); return !!el && el.checked; }
+
+export function makeFlowsUrl(wallet) {
+  const template = (($("flowsApiTemplate") && $("flowsApiTemplate").value) || "").trim() || "/api/usdt-flows?address={wallet}";
+  if (!template.includes("{wallet}") && !template.includes("{address}")) throw new Error("充提 API 模板必须包含 {wallet} 或 {address}");
+  return template.replaceAll("{wallet}", wallet).replaceAll("{address}", wallet);
+}
 
 // ---------- 各数据源 ----------
 
@@ -178,6 +198,14 @@ export async function fetchTradeShares(wallet, startTime, endTime) {
 
 export async function fetchPositionValue(wallet) {
   if (!shouldQueryHoldings()) return { holding_amount_usdt: "", name: "", error: "" };
+  // 导入的官网数据优先（predict.fun 页面脚本导出），不请求接口。
+  const imported = importedFor(wallet);
+  if (imported) {
+    if (imported.error && imported.positionsValueUsd === "" && !imported.name) return { holding_amount_usdt: "", name: "", error: `导入数据: ${imported.error}` };
+    return { holding_amount_usdt: imported.positionsValueUsd, name: imported.name, error: "" };
+  }
+  const miss = importedMissMessage(wallet);
+  if (miss) return { holding_amount_usdt: "", name: "", error: miss };
   try {
     const data = await fetchWithRetries(makePositionUrl(wallet));
     const pathText = $("positionValuePaths").value || "positionsValueUsd";
@@ -208,6 +236,13 @@ export async function fetchPositionValue(wallet) {
 // 模板未带 full=1 时自动补上；上游不返回 points 时 points 为空数组（周 PNL 显示 —）。
 export async function fetchOfficialPortfolioPnl(wallet) {
   if (!shouldQueryPnl()) return { pnl: "", points: [], error: "" };
+  const imported = importedFor(wallet);
+  if (imported) {
+    if (imported.pnlUsd === "") return { pnl: "", points: [], error: imported.error ? `导入数据: ${imported.error}` : "导入数据里没有官网PNL" };
+    return { pnl: imported.pnlUsd, points: imported.pnl_points || [], error: "" };
+  }
+  const miss = importedMissMessage(wallet);
+  if (miss) return { pnl: "", points: [], error: miss };
   try {
     let url = makePnlUrl(wallet);
     if (!/[?&]full=/.test(url)) url += (url.includes("?") ? "&" : "?") + "full=1";
@@ -308,5 +343,25 @@ export async function fetchUsdtBalance(wallet) {
     const message = err && err.message ? err.message : String(err);
     if (state.abort || message === "已停止") throw err;
     return { available_balance_usdt: "", error: `余额查询失败: ${message}` };
+  }
+}
+
+// ---------- USDT 充提（BSC 链，/api/usdt-flows）----------
+// 返回 { deposit_usdt, withdraw_usdt, net_usdt, error }；口径见 api/usdt-flows.js。
+export async function fetchUsdtFlows(wallet) {
+  if (!shouldQueryFlows()) return { deposit_usdt: "", withdraw_usdt: "", net_usdt: "", error: "" };
+  try {
+    const data = await fetchWithRetries(makeFlowsUrl(wallet));
+    const deposit = firstValueFromPaths(data, ["deposit_usdt", "data.deposit_usdt"]);
+    const withdraw = firstValueFromPaths(data, ["withdraw_usdt", "data.withdraw_usdt"]);
+    if (deposit === undefined || deposit === null || withdraw === undefined || withdraw === null) {
+      return { deposit_usdt: "", withdraw_usdt: "", net_usdt: "", error: data && data.error ? String(data.error) : "充提接口没有返回充值 / 提现金额" };
+    }
+    const net = firstValueFromPaths(data, ["net_usdt", "data.net_usdt"]);
+    return { deposit_usdt: normalizeDecimal(deposit), withdraw_usdt: normalizeDecimal(withdraw), net_usdt: net === undefined || net === null ? "" : normalizeDecimal(net), error: "" };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (state.abort || message === "已停止") throw err;
+    return { deposit_usdt: "", withdraw_usdt: "", net_usdt: "", error: `充提接口失败: ${message}` };
   }
 }

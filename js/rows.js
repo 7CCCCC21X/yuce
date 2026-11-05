@@ -1,7 +1,7 @@
 // 行数据构建：周明细行、错误行、钱包汇总行。
 
 import { $ } from "./dom.js";
-import { normalizeDecimal, decimalAdd, decimalMul } from "./decimal.js";
+import { normalizeDecimal, decimalAdd, decimalMul, negateDecimal } from "./decimal.js";
 import {
   joinErrors, timestampToUTC8,
   computeCostPerPoint, computePnlCostPerPoint, computeVolumePerPoint, computeOptionalVolumePerPoint,
@@ -16,24 +16,44 @@ export function readMultiplier(id, fallback) {
   return normalized === "0" && raw !== "0" ? fallback : normalized;
 }
 
-export function assetFields(holdingResult, balanceResult, pnlResult) {
+// USDT 充提（BSC 链上，/api/usdt-flows）：钱包级全期数值，三者缺一则都留空。
+export function flowFields(flowsResult) {
+  const ok = v => v !== "" && v !== undefined && v !== null;
+  if (!flowsResult || !ok(flowsResult.deposit_usdt) || !ok(flowsResult.withdraw_usdt)) return { deposit_usdt: "", withdraw_usdt: "", net_deposit_usdt: "" };
+  const deposit = normalizeDecimal(flowsResult.deposit_usdt);
+  const withdraw = normalizeDecimal(flowsResult.withdraw_usdt);
+  const net = ok(flowsResult.net_usdt) ? normalizeDecimal(flowsResult.net_usdt) : decimalAdd(deposit, negateDecimal(withdraw));
+  return { deposit_usdt: deposit, withdraw_usdt: withdraw, net_deposit_usdt: net };
+}
+
+export function assetFields(holdingResult, balanceResult, pnlResult, flowsResult) {
   const holding = holdingResult && holdingResult.holding_amount_usdt !== "" && holdingResult.holding_amount_usdt !== undefined && holdingResult.holding_amount_usdt !== null ? normalizeDecimal(holdingResult.holding_amount_usdt) : "";
   const balance = balanceResult && balanceResult.available_balance_usdt !== "" && balanceResult.available_balance_usdt !== undefined && balanceResult.available_balance_usdt !== null ? normalizeDecimal(balanceResult.available_balance_usdt) : "";
   const pnl = pnlResult && pnlResult.pnl !== "" && pnlResult.pnl !== undefined && pnlResult.pnl !== null ? normalizeDecimal(pnlResult.pnl) : "";
   let net = "";
   if (holding !== "" || balance !== "") net = decimalAdd(holding || "0", balance || "0");
   const name = holdingResult && holdingResult.name ? String(holdingResult.name) : "";
-  return { name, holding_amount_usdt: holding, available_balance_usdt: balance, net_asset_usdt: net, pnl };
+  const flows = flowFields(flowsResult);
+  return { name, holding_amount_usdt: holding, available_balance_usdt: balance, net_asset_usdt: net, pnl, ...flows, pnl_estimate_usdt: computePnlEstimate(holding, balance, flows.net_deposit_usdt) };
 }
 
-export async function buildRows(wallet, data, selectedWeeks, holdingResult, balanceResult, pnlResult) {
+// 推算盈亏 = 持仓金额 + 可用余额 − 净入金（充值 − 提现）。
+// 不依赖 GraphQL：持仓走官方 REST 估值或官网口径均可，余额走链上，充提走 BscScan。
+// 三者缺一则留空；与官网 PNL 的差异主要来自奖励发放、未领取结算等。
+export function computePnlEstimate(holding, balance, netDeposit) {
+  const ok = v => v !== "" && v !== undefined && v !== null;
+  if (!ok(holding) || !ok(balance) || !ok(netDeposit)) return "";
+  return decimalAdd(decimalAdd(holding, balance), negateDecimal(netDeposit));
+}
+
+export async function buildRows(wallet, data, selectedWeeks, holdingResult, balanceResult, pnlResult, flowsResult) {
   const leaderboard = data && data.leaderboard ? data.leaderboard : {};
   const weeks = Array.isArray(data && data.weeks) ? data.weeks : [];
   const weekMap = new Map();
   const pointsMul = readMultiplier("pointsMultiplier", "1.1");
   const feeMul = readMultiplier("feeMultiplier", "0.9");
-  const assets = assetFields(holdingResult, balanceResult, pnlResult);
-  const assetError = joinErrors(holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error);
+  const assets = assetFields(holdingResult, balanceResult, pnlResult, flowsResult);
+  const assetError = joinErrors(holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error, flowsResult && flowsResult.error);
   for (const w of weeks) weekMap.set(Number(w.week), w);
   try {
     if (weekMap.size) {
@@ -110,8 +130,8 @@ export async function buildRows(wallet, data, selectedWeeks, holdingResult, bala
   });
 }
 
-export function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceResult = {}, pnlResult = {}) {
-  const assets = assetFields(holdingResult, balanceResult, pnlResult);
+export function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceResult = {}, pnlResult = {}, flowsResult = {}) {
+  const assets = assetFields(holdingResult, balanceResult, pnlResult, flowsResult);
   return {
     wallet, status: "error",
     total_points: "0", allocation_round_points: "0", week: "", calculated: "", week_start_ts: "", week_end_ts: "", week_start_utc8: "", week_end_utc8: "",
@@ -119,7 +139,7 @@ export function buildErrorDetailRow(wallet, error, holdingResult = {}, balanceRe
     paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", cost_per_point: "", pnl_cost_per_point: "", week_pnl: "", week_pnl_cost_per_point: "",
     total_volume_per_point: "", paid_volume_per_point: "", free_volume_per_point: "", shares_per_point: "", referral_points: "0",
     ...assets,
-    error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error)
+    error: joinErrors(error, holdingResult && holdingResult.error, balanceResult && balanceResult.error, pnlResult && pnlResult.error, flowsResult && flowsResult.error)
   };
 }
 
@@ -132,7 +152,8 @@ export function buildSummaryRows(detailRows) {
         wallet, name: "", status: row.status === "error" ? "error" : "ok", total_points: row.total_points || "0", selected_weeks: [], calculated_all: "true",
         trade_count: "0", paid_volume_usdt: "0", free_volume_usdt: "0", total_volume_usdt: "0", total_volume_shares: "",
         paid_fee_usdt: "0", cost_usdt: "0", all_fee_usdt: "", points: "0", referral_points: "0",
-        holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", pnl: "", week_pnl: "", error: ""
+        holding_amount_usdt: "", available_balance_usdt: "", net_asset_usdt: "", pnl: "", week_pnl: "",
+        deposit_usdt: "", withdraw_usdt: "", net_deposit_usdt: "", pnl_estimate_usdt: "", error: ""
       });
     }
     const s = map.get(wallet);
@@ -142,6 +163,11 @@ export function buildSummaryRows(detailRows) {
     if (row.holding_amount_usdt !== "" && row.holding_amount_usdt !== undefined && row.holding_amount_usdt !== null) s.holding_amount_usdt = normalizeDecimal(row.holding_amount_usdt);
     if (row.available_balance_usdt !== "" && row.available_balance_usdt !== undefined && row.available_balance_usdt !== null) s.available_balance_usdt = normalizeDecimal(row.available_balance_usdt);
     if (row.pnl !== "" && row.pnl !== undefined && row.pnl !== null) s.pnl = normalizeDecimal(row.pnl);
+    // 充提是钱包级全期数值，每行相同，直接沿用。
+    for (const k of ["deposit_usdt", "withdraw_usdt", "net_deposit_usdt"]) {
+      if (row[k] !== "" && row[k] !== undefined && row[k] !== null) s[k] = normalizeDecimal(row[k]);
+    }
+    s.pnl_estimate_usdt = computePnlEstimate(s.holding_amount_usdt, s.available_balance_usdt, s.net_deposit_usdt);
     if (s.holding_amount_usdt !== "" || s.available_balance_usdt !== "") s.net_asset_usdt = decimalAdd(s.holding_amount_usdt || "0", s.available_balance_usdt || "0");
 
     if (row.status === "error") { s.status = "error"; s.calculated_all = ""; s.error = joinErrors(s.error, row.error || "请求失败"); continue; }

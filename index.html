@@ -188,9 +188,18 @@
           <div class="help">官网口径：GraphQL GetPortfolio 的 statistics.positionsValueUsd（同时返回用户名 name）。Vercel 出口被 Cloudflare 拦截时，服务端经 Railway 中继（relay/）发出，见 README。</div>
         </div>
         <div style="grid-column: 1 / -1;">
-          <label for="positionApiTemplate">持仓 API 模板</label>
+          <label for="holdingsSource">持仓金额来源</label>
+          <select id="holdingsSource">
+            <option value="graphql" selected>官网 GraphQL（/api/portfolio，官网口径 + 用户名）</option>
+            <option value="rest">官方 REST 估值（/api/positions-value，不依赖 GraphQL，无用户名）</option>
+            <option value="custom">自定义模板（用下面的持仓 API 模板）</option>
+          </select>
+          <div class="help">GraphQL 被 Cloudflare 拦住时选「官方 REST 估值」：服务端用 PREDICT_API_KEY 调 /v1/positions 翻完所有分页，按份额 × 当前买价逐仓估值求和，口径与官网略有差异。配合链上余额与 USDT 充提，可得「推算盈亏 = 持仓 + 余额 − 净入金」。导入的官网数据仍优先于这里的来源。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="positionApiTemplate">持仓 API 模板（仅「自定义模板」时生效）</label>
           <input id="positionApiTemplate" type="text" value="/api/portfolio?address={wallet}" />
-          <div class="help">默认走同域代理 /api/portfolio；服务端转发到 Predict.fun GraphQL GetPortfolio，返回官网展示的持仓金额(positionsValueUsd)和用户名(name)。</div>
+          <div class="help">/api/portfolio 转发到 Predict.fun GraphQL GetPortfolio，返回官网展示的持仓金额(positionsValueUsd)和用户名(name)。</div>
         </div>
         <div style="grid-column: 1 / -1;">
           <label for="positionValuePaths">持仓金额字段路径</label>
@@ -220,6 +229,15 @@
           <label for="usdtDecimals">USDT decimals</label>
           <input id="usdtDecimals" type="number" min="0" step="1" value="18" />
         </div>
+        <div>
+          <label class="checkbox" style="margin-top:24px;"><input id="queryFlows" type="checkbox" />查询 USDT 充提（BSC）</label>
+          <div class="help">按 Dune 口径：剔除与 Predict 市场合约之间的转账、剔除奖励发放与结算回款的入金、剔除 &lt; 10 U 的转账，汇总总充值 / 总提现 / 净入金。需 Vercel 配置 ETHERSCAN_API_KEY。</div>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label for="flowsApiTemplate">充提 API 模板</label>
+          <input id="flowsApiTemplate" type="text" value="/api/usdt-flows?address={wallet}" />
+          <div class="help">同域代理 /api/usdt-flows；服务端调 Etherscan V2（chainid=56）的 account.tokentx 取该地址全部 USDT 转账。加 &amp;full=1 可看筛选后的每笔明细。</div>
+        </div>
         <div style="grid-column: 1 / -1;">
           <label for="rpcUrls">BSC RPC URL（每行一个，失败会自动换下一个）</label>
           <textarea id="rpcUrls" style="min-height:70px">https://bsc-dataseed.bnbchain.org/
@@ -230,6 +248,20 @@ https://bsc.drpc.org</textarea>
         <div style="grid-column: 1 / -1;">
           <label for="proxyPrefix">代理前缀（可选）</label>
           <input id="proxyPrefix" type="text" placeholder="留空即直连。如有 CORS 问题填代理前缀，例如 https://你的域名/proxy?url=" />
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label>导入官网数据（predict.fun 页面脚本导出）</label>
+          <div class="help">Predict 的 GraphQL 被 Cloudflare 拦住时的替代路径：在 predict.fun 页面的 Console 里运行脚本，批量查出用户名 / 持仓金额 / 官网 PNL 并下载 JSON，再在这里导入。导入后查询这些钱包时直接用导入数据，不再请求 /api/portfolio 与 /api/portfolio-pnl。</div>
+          <div class="config-actions" style="margin-top:6px;">
+            <button id="copyExportScriptBtn" type="button" class="secondary">复制脚本</button>
+            <button id="openExportScriptBtn" type="button" class="secondary">查看脚本</button>
+            <button id="importPortfolioBtn" type="button" class="secondary">导入导出文件</button>
+            <input id="importPortfolioFile" type="file" accept="application/json,.json" hidden />
+            <button id="clearImportedBtn" type="button" class="bad">清除导入</button>
+            <span id="importedStatus" class="help">未导入。</span>
+          </div>
+          <label class="checkbox" style="margin-top:8px;"><input id="useImported" type="checkbox" checked />优先使用导入数据</label>
+          <label class="checkbox" style="margin-top:4px;margin-left:16px;"><input id="importedFallback" type="checkbox" checked />导入数据里没有的钱包仍走接口</label>
         </div>
         <div style="grid-column: 1 / -1;" class="config-actions">
           <button id="exportConfigBtn" type="button" class="secondary">导出配置</button>
