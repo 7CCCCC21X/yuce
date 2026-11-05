@@ -157,6 +157,13 @@ export function shouldQueryShares() { const el = $("queryShares"); return !el ||
 export function shouldQueryHoldings() { const el = $("queryHoldings"); return !el || el.checked; }
 export function shouldQueryBalance() { const el = $("queryBalance"); return !el || el.checked; }
 export function shouldQueryPnl() { const el = $("queryPnl"); return !el || el.checked; }
+export function shouldQueryFlows() { const el = $("queryFlows"); return !!el && el.checked; }
+
+export function makeFlowsUrl(wallet) {
+  const template = (($("flowsApiTemplate") && $("flowsApiTemplate").value) || "").trim() || "/api/usdt-flows?address={wallet}";
+  if (!template.includes("{wallet}") && !template.includes("{address}")) throw new Error("充提 API 模板必须包含 {wallet} 或 {address}");
+  return template.replaceAll("{wallet}", wallet).replaceAll("{address}", wallet);
+}
 
 // ---------- 各数据源 ----------
 
@@ -308,5 +315,25 @@ export async function fetchUsdtBalance(wallet) {
     const message = err && err.message ? err.message : String(err);
     if (state.abort || message === "已停止") throw err;
     return { available_balance_usdt: "", error: `余额查询失败: ${message}` };
+  }
+}
+
+// ---------- USDT 充提（BSC 链，/api/usdt-flows）----------
+// 返回 { deposit_usdt, withdraw_usdt, net_usdt, error }；口径见 api/usdt-flows.js。
+export async function fetchUsdtFlows(wallet) {
+  if (!shouldQueryFlows()) return { deposit_usdt: "", withdraw_usdt: "", net_usdt: "", error: "" };
+  try {
+    const data = await fetchWithRetries(makeFlowsUrl(wallet));
+    const deposit = firstValueFromPaths(data, ["deposit_usdt", "data.deposit_usdt"]);
+    const withdraw = firstValueFromPaths(data, ["withdraw_usdt", "data.withdraw_usdt"]);
+    if (deposit === undefined || deposit === null || withdraw === undefined || withdraw === null) {
+      return { deposit_usdt: "", withdraw_usdt: "", net_usdt: "", error: data && data.error ? String(data.error) : "充提接口没有返回充值 / 提现金额" };
+    }
+    const net = firstValueFromPaths(data, ["net_usdt", "data.net_usdt"]);
+    return { deposit_usdt: normalizeDecimal(deposit), withdraw_usdt: normalizeDecimal(withdraw), net_usdt: net === undefined || net === null ? "" : normalizeDecimal(net), error: "" };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (state.abort || message === "已停止") throw err;
+    return { deposit_usdt: "", withdraw_usdt: "", net_usdt: "", error: `充提接口失败: ${message}` };
   }
 }
