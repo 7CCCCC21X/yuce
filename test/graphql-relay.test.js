@@ -51,7 +51,7 @@ test('中继透传的上游 403 仍按"上游拒绝"处理；未配置中继时�
     const realFetch = globalThis.fetch;
     globalThis.fetch = async () => response({ status: 403, body: '{"message":"forbidden"}' });
     try {
-      await assert.rejects(() => predictGraphql({ query: '{ x }' }), /Upstream rejected the session \(HTTP 403\)/);
+      await assert.rejects(() => predictGraphql({ query: '{ x }' }), /Upstream rejected the request \(HTTP 403, via relay .*JSON: forbidden/);
     } finally { globalThis.fetch = realFetch; }
   });
   await withEnv({ PREDICT_GRAPHQL_RELAY_URL: undefined, PREDICT_GRAPHQL_URL: undefined }, async () => {
