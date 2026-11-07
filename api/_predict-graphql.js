@@ -99,6 +99,29 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 let warnedAnonymous = false;
 
+// 401 / 403 的人话描述。via：直连还是经中继；body：Cloudflare 页 / JSON 错误 / 文本片段。
+function describeRejection(upstream, text, relay) {
+  const via = relay ? `via relay ${relay.url}` : 'direct from Vercel';
+  const ray = upstream.headers.get('cf-ray') || upstream.headers.get('x-upstream-cf-ray') || (text.match(/ray id:?\s*(?:<[^>]*>\s*)*([0-9a-f]{12,}(?:-[A-Z]{3})?)/i) || [])[1] || '';
+  const server = (upstream.headers.get('server') || upstream.headers.get('x-upstream-server') || '').toLowerCase();
+  const looksHtml = /^\s*<!doctype html|^\s*<html/i.test(text);
+  const mentionsCf = /cloudflare|cf-error|cf-ray|attention required|just a moment/i.test(text);
+  let what;
+  if (looksHtml && (mentionsCf || server.includes('cloudflare'))) {
+    const challenge = /just a moment|challenge-platform|cf-chl/i.test(text);
+    what = `Cloudflare ${challenge ? 'challenge page' : 'block page'}${ray ? ` (Ray ID ${ray})` : ''} — the request never reached predict.fun GraphQL; this is NOT an expired PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE`;
+  } else {
+    let snippet = text.replace(/\s+/g, ' ').trim().slice(0, 160);
+    try {
+      const json = JSON.parse(text);
+      const msg = json?.errors?.[0]?.message || json?.error || json?.message;
+      if (msg) snippet = `JSON: ${String(msg).slice(0, 160)}`;
+    } catch { /* not JSON */ }
+    what = `upstream answered ${upstream.status}${snippet ? ` — ${snippet}` : ''}${ray ? ` (Ray ID ${ray})` : ''}`;
+  }
+  return `Upstream rejected the request (HTTP ${upstream.status}, ${via}): ${what}.`;
+}
+
 // POSTs a GraphQL operation to Predict.fun and returns the parsed JSON.
 // Retries once on retryable upstream status / network error.
 // Throws an Error with `.status` and `.raw` on transport / GraphQL errors.
@@ -171,10 +194,10 @@ async function predictGraphql({ query, variables, operationName }) {
     throw err;
   }
 
-  // Session credentials (cookie / auth token) expire; surface that clearly so
-  // the operator knows to refresh the env vars instead of guessing.
+  // 401 / 403：把"谁拒绝的、拒绝页长什么样、经没经过中继"写进错误信息，
+  // 不用再加 debug=1 就能定位：Cloudflare 拦截页（HTML）、GraphQL 的 JSON 错误、还是别的。
   if (upstream.status === 401 || upstream.status === 403) {
-    const err = new Error(`Upstream rejected the session (HTTP ${upstream.status}). PREDICT_GRAPHQL_AUTH / PREDICT_GRAPHQL_COOKIE may be missing or expired — refresh them in the Vercel env vars.`);
+    const err = new Error(describeRejection(upstream, text, relay));
     err.status = 502;
     err.raw = text.slice(0, 800);
     throw err;
