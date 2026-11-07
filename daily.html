@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>每日盈亏与星期分布</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .daily-controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 10px 0 14px; }
+    .daily-controls select, .daily-controls input[type="number"] { width: auto; min-width: 160px; }
+    .daily-table { min-width: 0; }
+    .daily-table td:first-child, .daily-table th:first-child { color: inherit; font-weight: inherit; width: auto; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pos { color: #1f7a3a; }
+    .neg { color: var(--bad); }
+    .muted { color: var(--muted); }
+    .scroll { overflow: auto; max-height: 70vh; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin-bottom: 18px; }
+    .bar { display: inline-block; height: 8px; border-radius: 2px; vertical-align: middle; margin-left: 6px; }
+    .bar.pos { background: #1f7a3a; } .bar.neg { background: var(--bad); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>每日盈亏与星期分布</h1>
+    <div class="subtitle">
+      数据来自「官网数据导出」JSON（predict.fun 页面 Console 跑 <a href="scripts/predict-console-export.js" target="_blank" rel="noopener">导出脚本</a> 得到）。
+      统一按北京时间切日：当天盈亏 = 次日 00:00 累计 PNL − 当天 00:00 累计 PNL。
+      在主页面导入过的数据这里会自动带出。<a href="./index.html">← 返回积分查询</a>
+    </div>
+
+    <div class="daily-controls">
+      <button id="importBtn" type="button">导入导出文件</button>
+      <input id="importFile" type="file" accept="application/json,.json" hidden />
+      <span id="importStatus" class="help">未导入。</span>
+    </div>
+
+    <div class="daily-controls">
+      <input id="addrInput" type="text" placeholder="输入钱包地址 0x… 单独查询" style="width:420px;max-width:100%;font-family:ui-monospace,monospace" />
+      <button id="queryAddrBtn" type="button">查询</button>
+      <button id="copyAddrScriptBtn" type="button" class="secondary" hidden>复制该地址的导出脚本</button>
+    </div>
+    <div id="queryHint" class="help" style="margin:-6px 0 12px"></div>
+
+    <div class="daily-controls">
+      <label>地址
+        <select id="walletSelect"><option value="__all__">全部地址合并</option></select>
+      </label>
+      <label class="checkbox"><input id="onlyComplete" type="checkbox" checked />星期汇总只统计完整的天</label>
+      <label>边界容差（小时）
+        <input id="toleranceHours" type="number" min="0" step="0.5" value="3" />
+      </label>
+      <button id="exportDailyBtn" type="button" class="secondary">导出每日明细 CSV</button>
+      <button id="exportWeekdayBtn" type="button" class="secondary">导出星期汇总 CSV</button>
+    </div>
+
+    <div id="stats" class="stats"></div>
+    <div id="granularity" class="help" style="margin:-6px 0 12px"></div>
+
+    <div class="section-title">星期汇总<span class="section-line"></span></div>
+    <div class="scroll"><table class="daily-table" id="weekdayTable"></table></div>
+
+    <div class="section-title">每日明细<span class="section-line"></span></div>
+    <div class="scroll"><table class="daily-table" id="dailyTable"></table></div>
+
+    <div class="help">
+      「未结束」：当天没过完，或数据在当天结束前就停了，不计入星期汇总。
+      「边界粗」：离零点最近的数据点超过容差，时序太稀，这一天可能划错日期。只有每天一个 UTC 点时会大量出现，此时按天统计不可靠。
+      「起点推定」：零点前没有数据，按 0 起算。缺失日期不会记成 0。
+      本页反映的是「哪天发生了盈亏变化」；要研究「哪天下单的交易更赚钱」需要逐笔成交与结算记录。
+    </div>
+  </div>
+  <script type="module" src="./js/daily.js"></script>
+</body>
+</html>
