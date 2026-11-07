@@ -36,6 +36,13 @@
     </div>
 
     <div class="daily-controls">
+      <input id="addrInput" type="text" placeholder="输入钱包地址 0x… 单独查询" style="width:420px;max-width:100%;font-family:ui-monospace,monospace" />
+      <button id="queryAddrBtn" type="button">查询</button>
+      <button id="copyAddrScriptBtn" type="button" class="secondary" hidden>复制该地址的导出脚本</button>
+    </div>
+    <div id="queryHint" class="help" style="margin:-6px 0 12px"></div>
+
+    <div class="daily-controls">
       <label>地址
         <select id="walletSelect"><option value="__all__">全部地址合并</option></select>
       </label>

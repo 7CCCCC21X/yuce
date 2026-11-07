@@ -1,6 +1,6 @@
 // 每日盈亏页：读取导入的官网数据，按北京时间切日，展示每日明细与星期汇总。
 
-import { $ } from "./dom.js";
+import { $, copyText } from "./dom.js";
 import { toast } from "./toast.js";
 import { csvEscape } from "./format.js";
 import { loadImportedFile, restoreImported, importedEntries, describeImported } from "./imported.js";
@@ -13,13 +13,20 @@ const cls = n => (n > 0 ? "pos" : n < 0 ? "neg" : "muted");
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 let current = { daily: [], weekday: [] };
+// 单独查询得到、但没写进导入存储的地址（本页会话内有效）。
+const adhoc = new Map();
+const allEntries = () => {
+  const m = new Map(importedEntries());
+  for (const [a, e] of adhoc) if (!m.has(a)) m.set(a, e);
+  return [...m.entries()];
+};
 
 function walletLabel(addr, entry) { return entry.name ? `${entry.name}（${shortAddr(addr)}）` : shortAddr(addr); }
 
 function refreshWalletSelect() {
   const sel = $("walletSelect");
   const keep = sel.value;
-  const entries = importedEntries().filter(([, e]) => e.pnl_points && e.pnl_points.length);
+  const entries = allEntries().filter(([, e]) => e.pnl_points && e.pnl_points.length);
   sel.innerHTML = `<option value="__all__">全部地址合并（${entries.length}）</option>` +
     entries.map(([a, e]) => `<option value="${esc(a)}">${esc(walletLabel(a, e))} · ${e.pnl_points.length} 点</option>`).join("");
   if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
@@ -28,7 +35,7 @@ function refreshWalletSelect() {
 function compute() {
   const tol = Math.max(0, Number($("toleranceHours").value || 3)) * 3600;
   const sel = $("walletSelect").value;
-  const entries = importedEntries().filter(([, e]) => e.pnl_points && e.pnl_points.length);
+  const entries = allEntries().filter(([, e]) => e.pnl_points && e.pnl_points.length);
   const chosen = sel === "__all__" ? entries : entries.filter(([a]) => a === sel);
   const perWallet = chosen.map(([a, e]) => ({ addr: a, entry: e, rows: dailyPnlFromPoints(e.pnl_points, { toleranceSec: tol }) }));
   const daily = sel === "__all__"
@@ -107,6 +114,51 @@ function exportWeekday() {
 }
 
 function refreshAll() { $("importStatus").textContent = describeImported(); refreshWalletSelect(); render(); }
+
+// ---------- 输入地址单独查询 ----------
+// 顺序：已导入 → 服务端 /api/portfolio-pnl（GraphQL 可用时直接出结果）→ 给出预填地址的导出脚本。
+let lastMissAddr = "";
+async function queryAddress() {
+  const raw = ($("addrInput").value || "").trim();
+  const m = raw.match(/0x[0-9a-fA-F]{40}/);
+  const hint = $("queryHint");
+  $("copyAddrScriptBtn").hidden = true;
+  if (!m) { hint.textContent = "请输入完整的 0x 开头 40 位钱包地址。"; return; }
+  const addr = m[0].toLowerCase();
+  const show = () => { refreshWalletSelect(); $("walletSelect").value = addr; render(); };
+  const known = allEntries().find(([a, e]) => a === addr && e.pnl_points && e.pnl_points.length);
+  if (known) { hint.textContent = "已在导入数据中，直接显示。"; show(); return; }
+  hint.textContent = "导入数据里没有这个地址，正在通过服务端查询…";
+  try {
+    const res = await fetch(`/api/portfolio-pnl?address=${addr}&interval=ALL&full=1`, { cache: "no-store" });
+    const data = await res.json().catch(() => null);
+    if (data && data.success && Array.isArray(data.points) && data.points.length) {
+      adhoc.set(addr, { address: m[0], name: "", pnl_points: data.points, pnlUsd: String(data.pnlUsd ?? ""), error: "" });
+      hint.textContent = `服务端查询成功（${data.points.length} 个时序点）。`;
+      show(); return;
+    }
+    throw new Error((data && data.error) || `HTTP ${res.status}`);
+  } catch (err) {
+    lastMissAddr = m[0];
+    $("copyAddrScriptBtn").hidden = false;
+    hint.textContent = `服务端查不到（${String(err && err.message || err).slice(0, 120)}）。点「复制该地址的导出脚本」，到 predict.fun 页面 F12 → Console 粘贴回车，会自动开始查询并下载 JSON，再点上面「导入导出文件」。`;
+  }
+}
+
+async function copyAddrScript() {
+  if (!lastMissAddr) return;
+  try {
+    const res = await fetch("scripts/predict-console-export.js", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = `window.__YUCE_EXPORT_ADDRS = ${JSON.stringify([lastMissAddr])};\n` + await res.text();
+    const ok = await copyText(text);
+    toast(ok ? "脚本已复制（已预填该地址，粘贴后自动开始）。" : "复制失败，请手动打开导出脚本。", ok ? "success" : "error");
+  } catch (err) { toast(`读取脚本失败：${err && err.message ? err.message : err}`, "error"); }
+}
+
+$("queryAddrBtn").addEventListener("click", queryAddress);
+$("addrInput").addEventListener("keydown", e => { if (e.key === "Enter") queryAddress(); });
+$("copyAddrScriptBtn").addEventListener("click", copyAddrScript);
 
 $("importBtn").addEventListener("click", () => $("importFile").click());
 $("importFile").addEventListener("change", async e => {

@@ -266,5 +266,12 @@ const KECCAK_RC = [
   $("yx-stop").addEventListener("click", () => { stop = true; });
   $("yx-csv").addEventListener("click", () => { if (lastResult) download(`yuce-portfolio-export-${stamp()}.csv`, toCsv(lastResult), "text/csv;charset=utf-8"); });
   $("yx-close").addEventListener("click", () => panel.remove());
+  // yuce 每日盈亏页「复制该地址的脚本」会在脚本前面预设 window.__YUCE_EXPORT_ADDRS，自动填入并开始。
+  const preset = Array.isArray(window.__YUCE_EXPORT_ADDRS) ? window.__YUCE_EXPORT_ADDRS : null;
+  try { delete window.__YUCE_EXPORT_ADDRS; } catch { window.__YUCE_EXPORT_ADDRS = undefined; }
+  if (preset && preset.length) {
+    $("yx-addrs").value = preset.join("\n");
+    setTimeout(() => $("yx-start").click(), 0);
+  }
   log(`脚本已加载。页面来源 ${location.origin}${location.origin.includes("predict.fun") ? "" : "（注意：不是 predict.fun，GraphQL 可能被 CORS 拒绝）"}`);
 })();
