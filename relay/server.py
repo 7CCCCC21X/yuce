@@ -126,8 +126,38 @@ def make_handler(cfg: RelayConfig, client: httpx.Client):
         def do_GET(self) -> None:  # noqa: N802
             url = urlsplit(self.path)
             if url.path == "/healthz":
-                return self._json(200, {"ok": True, "upstream": cfg.upstream, "http2": HTTP2, "token_required": bool(cfg.token)})
+                body = {"ok": True, "upstream": cfg.upstream, "http2": HTTP2, "token_required": bool(cfg.token)}
+                # ?probe=1：真的向上游发一句最小查询，直接看「Railway → predict.fun」这一跳通不通。
+                # 只报告状态码与响应开头，不改变任何请求方式。需要 token（设置了的话）。
+                if parse_qs(url.query).get("probe", ["0"])[0] == "1":
+                    if not self._authorized(url):
+                        return self._relay_error(401, "relay token missing or invalid (set RELAY_TOKEN on both sides)")
+                    body["probe"] = self._probe()
+                return self._json(200, body)
             return self._relay_error(404, f"no such route: GET {url.path}")
+
+        def _probe(self) -> dict:
+            headers = {"content-type": "application/json", "accept": "application/graphql-response+json, application/json"}
+            if cfg.auth:
+                headers["authorization"] = cfg.auth
+            if cfg.cookie:
+                headers["cookie"] = cfg.cookie
+            started = time.monotonic()
+            try:
+                resp = client.post(cfg.upstream, content=b'{"query":"{__typename}"}', headers=headers)
+            except httpx.HTTPError as exc:
+                return {"ok": False, "error": f"upstream request failed: {exc}", "elapsed_ms": int((time.monotonic() - started) * 1000)}
+            text = resp.text
+            kind = "json" if text.lstrip().startswith("{") else ("cloudflare-html" if "cloudflare" in text.lower() or "attention required" in text.lower() else "other")
+            return {
+                "ok": resp.status_code == 200 and kind == "json",
+                "status": resp.status_code,
+                "kind": kind,
+                "cf_ray": resp.headers.get("cf-ray"),
+                "server": resp.headers.get("server"),
+                "elapsed_ms": int((time.monotonic() - started) * 1000),
+                "body_head": " ".join(text.split())[:200],
+            }
 
         def do_POST(self) -> None:  # noqa: N802
             url = urlsplit(self.path)

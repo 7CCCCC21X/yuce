@@ -75,6 +75,26 @@ class RelayTests(unittest.TestCase):
     def setUp(self):
         FakeUpstream.received.clear()
 
+    def test_healthz_probe(self):
+        # 不带 token 的探测被拒；带 token 时真的打一次上游并报告状态。
+        self.assertEqual(httpx.get(f"{self.base}/healthz?probe=1").status_code, 401)
+        r = httpx.get(f"{self.base}/healthz?probe=1&token=s3cret")
+        self.assertEqual(r.status_code, 200)
+        probe = r.json()["probe"]
+        self.assertTrue(probe["ok"])
+        self.assertEqual(probe["status"], 200)
+        self.assertEqual(probe["kind"], "json")
+        self.assertEqual(FakeUpstream.received[-1]["body"], '{"query":"{__typename}"}')
+        # 上游返回 Cloudflare 拦截页时，探测报告 kind=cloudflare-html 与 Ray ID
+        cfg = relay.RelayConfig({"PREDICT_GRAPHQL_URL": self.upstream_url.replace("/graphql", "/block")})
+        srv = relay.serve("127.0.0.1", 0, cfg)
+        start(srv)
+        try:
+            p = httpx.get(f"http://127.0.0.1:{srv.server_address[1]}/healthz?probe=1").json()["probe"]
+            self.assertFalse(p["ok"]); self.assertEqual(p["status"], 403); self.assertEqual(p["kind"], "cloudflare-html"); self.assertEqual(p["cf_ray"], "deadbeef0000-SIN")
+        finally:
+            srv.shutdown(); srv.server_close()
+
     def test_healthz(self):
         r = httpx.get(f"{self.base}/healthz")
         self.assertEqual(r.status_code, 200)
