@@ -81,6 +81,8 @@ export function clearImported() {
 }
 
 export function importedCount() { return store.wallets.size; }
+// 全部导入的钱包：[[小写地址, entry], ...]（每日盈亏页用）。
+export function importedEntries() { return [...store.wallets.entries()]; }
 export function importedInfo() { return { count: store.wallets.size, exportedAt: store.exportedAt, source: store.source, fileName: store.fileName }; }
 
 // 是否启用导入数据（设置里的开关，没有该元素时视为启用）。
