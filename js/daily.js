@@ -3,7 +3,8 @@
 import { $, copyText } from "./dom.js";
 import { toast } from "./toast.js";
 import { csvEscape } from "./format.js";
-import { loadImportedFile, restoreImported, importedEntries, describeImported } from "./imported.js";
+import { restoreImported, importedEntries } from "./imported.js";
+import { restoreDaily, addDailyFile, addDailyEntries, clearDaily, removeDaily, dailyEntries, describeDaily } from "./daily-store.js";
 import { dailyPnlFromPoints, mergeDailyRows, weekdaySummary, medianIntervalSec } from "./daily-pnl.js";
 
 const shortAddr = a => (a && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a || "");
@@ -16,7 +17,7 @@ let current = { daily: [], weekday: [] };
 // 单独查询得到、但没写进导入存储的地址（本页会话内有效）。
 const adhoc = new Map();
 const allEntries = () => {
-  const m = new Map(importedEntries());
+  const m = new Map(dailyEntries());
   for (const [a, e] of adhoc) if (!m.has(a)) m.set(a, e);
   return [...m.entries()];
 };
@@ -113,7 +114,14 @@ function exportWeekday() {
   ]);
 }
 
-function refreshAll() { $("importStatus").textContent = describeImported(); refreshWalletSelect(); render(); }
+function refreshAll() {
+  $("importStatus").textContent = describeDaily();
+  const mainCount = importedEntries().filter(([, e]) => e.pnl_points && e.pnl_points.length).length;
+  $("useMainDataBtn").hidden = !mainCount;
+  $("useMainDataBtn").textContent = `带入主页面已导入的 ${mainCount} 个地址`;
+  $("removeOneBtn").hidden = $("walletSelect").value === "__all__";
+  refreshWalletSelect(); render();
+}
 
 // ---------- 输入地址单独查询 ----------
 // 顺序：已导入 → 服务端 /api/portfolio-pnl（GraphQL 可用时直接出结果）→ 给出预填地址的导出脚本。
@@ -133,7 +141,7 @@ async function queryAddress() {
     const res = await fetch(`/api/portfolio-pnl?address=${addr}&interval=ALL&full=1`, { cache: "no-store" });
     const data = await res.json().catch(() => null);
     if (data && data.success && Array.isArray(data.points) && data.points.length) {
-      adhoc.set(addr, { address: m[0], name: "", pnl_points: data.points, pnlUsd: String(data.pnlUsd ?? ""), error: "" });
+      addDailyEntries([[addr, { address: m[0], name: "", pnl_points: data.points, pnlUsd: String(data.pnlUsd ?? ""), error: "" }]], "服务端查询");
       hint.textContent = `服务端查询成功（${data.points.length} 个时序点）。`;
       show(); return;
     }
@@ -141,7 +149,7 @@ async function queryAddress() {
   } catch (err) {
     lastMissAddr = m[0];
     $("copyAddrScriptBtn").hidden = false;
-    hint.textContent = `服务端查不到（${String(err && err.message || err).slice(0, 120)}）。点「复制该地址的导出脚本」，到 predict.fun 页面 F12 → Console 粘贴回车，会自动开始查询并下载 JSON，再点上面「导入导出文件」。`;
+    hint.textContent = `服务端查不到（${String(err && err.message || err).slice(0, 120)}）。点「复制该地址的导出脚本」，到 predict.fun 页面 F12 → Console 粘贴回车，会自动开始查询并下载 JSON，再点上面「导入数据文件」。`;
   }
 }
 
@@ -165,12 +173,22 @@ $("importFile").addEventListener("change", async e => {
   const file = e.target.files && e.target.files[0];
   e.target.value = "";
   if (!file) return;
-  try { const n = await loadImportedFile(file); toast(`已导入 ${n} 个钱包。`, "success"); refreshAll(); }
+  try {
+    const r = await addDailyFile(file);
+    toast(`导入完成：新增 ${r.added} 个、更新 ${r.updated} 个，本页共 ${r.total} 个地址。${r.persisted ? "" : "（数据较大，刷新后需重新导入）"}`, "success");
+    refreshAll();
+  }
   catch (err) { toast(`导入失败：${err && err.message ? err.message : err}`, "error"); }
 });
 for (const id of ["walletSelect", "onlyComplete", "toleranceHours"]) $(id).addEventListener("change", render);
 $("exportDailyBtn").addEventListener("click", exportDaily);
 $("exportWeekdayBtn").addEventListener("click", exportWeekday);
 
-restoreImported();
+$("clearDailyBtn").addEventListener("click", () => { if (!confirm("清空本页的全部数据？（不影响主页面）")) return; clearDaily(); adhoc.clear(); refreshAll(); toast("已清空本页数据。", "info"); });
+$("useMainDataBtn").addEventListener("click", () => { const n = addDailyEntries(importedEntries()); toast(`已带入 ${n} 个地址。`, "success"); refreshAll(); });
+$("removeOneBtn").addEventListener("click", () => { const a = $("walletSelect").value; if (a === "__all__") return; removeDaily(a); adhoc.delete(a); $("walletSelect").value = "__all__"; refreshAll(); });
+$("walletSelect").addEventListener("change", () => { $("removeOneBtn").hidden = $("walletSelect").value === "__all__"; });
+
+restoreImported(); // 只用于「带入主页面数据」按钮，不会自动混进本页
+restoreDaily();
 refreshAll();
